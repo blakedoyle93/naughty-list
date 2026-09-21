@@ -185,10 +185,10 @@ void app.whenReady().then(() => {
   handle('flags:delete', (id) => store.deleteFlag(id))
   handle('players:list', () => store.players())
   handle('players:lookup', async (id) => {
-    const rec = currentLcuApi
-      ? ((await currentLcuApi.lookupAlias(id)) ??
-        (id.tagLine ? null : await currentLcuApi.lookupByName(id.gameName)))
-      : null
+    if (!currentLcuApi) throw new Error("League isn't open. Open the client, then try again.")
+    const rec =
+      (await currentLcuApi.lookupAlias(id)) ??
+      (id.tagLine ? null : await currentLcuApi.lookupByName(id.gameName))
     if (rec) await store.upsertPlayers([rec])
     return rec
   })

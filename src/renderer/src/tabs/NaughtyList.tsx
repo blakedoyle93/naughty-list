@@ -51,7 +51,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     try {
       const rec = await lookup({ gameName: m[1], tagLine: m[2] })
       if (!rec) {
-        setErr("Can't find that player. League has to be open to look people up.")
+        setErr("Can't find that player. Check the spelling and tag.")
         return
       }
       await onAdd(rec.puuid, note.trim())
