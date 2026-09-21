@@ -38,7 +38,7 @@ and see the note in the app before the game starts.
 | `InProgress` (loading screen onward) | All 10 players by Riot ID (`riotIdGameName#riotIdTagLine`) | Live Client `/liveclientdata/playerlist` (port 2999, appears a few seconds after phase change) |
 | `EndOfGame` | All 10 players with PUUID | LCU `/lol-end-of-game/v1/eog-stats-block` |
 
-Identity key everywhere is **PUUID**. Riot IDs change; PUIDs do not.
+Identity key everywhere is **PUUID**. Riot IDs change; PUUIDs do not.
 Riot ID → PUUID resolution goes through LCU `/lol-summoner/v1/alias/lookup`
 (requires client running).
 
