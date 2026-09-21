@@ -184,7 +184,11 @@ void app.whenReady().then(() => {
   })
   handle('flags:delete', (id) => store.deleteFlag(id))
   handle('players:list', () => store.players())
-  handle('players:lookup', async (id) => (currentLcuApi ? currentLcuApi.lookupAlias(id) : null))
+  handle('players:lookup', async (id) => {
+    const rec = currentLcuApi ? await currentLcuApi.lookupAlias(id) : null
+    if (rec) await store.upsertPlayers([rec])
+    return rec
+  })
   handle('auth:signIn', () => auth.signIn())
   handle('auth:signOut', () => auth.signOut())
   handle('auth:get', () => auth.current())

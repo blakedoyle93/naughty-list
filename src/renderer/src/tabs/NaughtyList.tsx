@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { Flag } from '@shared/types'
 import { usePlayers } from '../hooks/usePlayers'
+import { Scribble } from '../components/Scribble'
+import { parseImportLines } from '../import'
 
 interface Props {
   flags: Flag[]
@@ -16,6 +18,8 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   const [note, setNote] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [bulk, setBulk] = useState('')
+  const [bulkResult, setBulkResult] = useState<{ added: number; missed: string[] } | null>(null)
 
   const grouped = useMemo(() => {
     const byPuuid = new Map<string, Flag[]>()
@@ -39,14 +43,14 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     setErr(null)
     const m = riotId.trim().match(/^(.+?)#(.+)$/)
     if (!m) {
-      setErr('Use the format GameName#TAG')
+      setErr('Write it like GameName#TAG, with the hashtag.')
       return
     }
     setBusy(true)
     try {
       const rec = await lookup({ gameName: m[1], tagLine: m[2] })
       if (!rec) {
-        setErr('Player not found. Is the League client open?')
+        setErr("Can't find that player. League has to be open to look people up.")
         return
       }
       await onAdd(rec.puuid, note.trim())
@@ -59,67 +63,145 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     }
   }
 
+  async function importBulk(): Promise<void> {
+    const { entries, bad } = parseImportLines(bulk)
+    setBusy(true)
+    setBulkResult(null)
+    const missed = bad.map((l) => `${l} (needs a #TAG)`)
+    let added = 0
+    try {
+      for (const e of entries) {
+        const rec = await lookup({ gameName: e.gameName, tagLine: e.tagLine })
+        if (!rec) {
+          missed.push(`${e.gameName}#${e.tagLine}`)
+          continue
+        }
+        await onAdd(rec.puuid, e.note)
+        added++
+      }
+      setBulkResult({ added, missed })
+      if (missed.length === 0) setBulk('')
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div>
       <form
         onSubmit={submit}
-        className="flex flex-wrap gap-2 rounded-lg border border-zinc-800 p-3"
+        className="scrap max-w-xl"
+        style={{ '--tilt': '-0.7deg' } as React.CSSProperties}
       >
-        <input
-          className="min-w-40 flex-1 rounded bg-zinc-900 px-2 py-1 text-sm"
-          placeholder="GameName#TAG"
-          value={riotId}
-          onChange={(e) => setRiotId(e.target.value)}
-        />
-        <input
-          className="min-w-60 flex-[2] rounded bg-zinc-900 px-2 py-1 text-sm"
-          placeholder="What did they do?"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={500}
-        />
-        <button
-          className="rounded bg-red-700 px-3 py-1 text-sm disabled:opacity-50"
-          disabled={busy || !riotId.trim() || !note.trim()}
-        >
-          Add
-        </button>
-        {err && <p className="w-full text-xs text-red-400">{err}</p>}
+        <h2 className="hand text-2xl leading-tight">Tell on someone</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            className="pencil-input min-w-44 flex-1"
+            placeholder="GameName#TAG"
+            value={riotId}
+            onChange={(e) => setRiotId(e.target.value)}
+          />
+          <input
+            className="pencil-input min-w-60 flex-[2]"
+            placeholder="What did they do?"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={500}
+          />
+          <button
+            className="crayon-btn"
+            style={
+              { '--btn-color': 'var(--color-crayon-red)', color: '#fff' } as React.CSSProperties
+            }
+            disabled={busy || !riotId.trim() || !note.trim()}
+          >
+            Add to list
+          </button>
+        </div>
+        {err && <p className="hand mt-2 text-crayon-red">{err}</p>}
+        <details className="mt-3">
+          <summary className="link-btn">Got a whole list? Paste it here</summary>
+          <p className="note-by mt-2">
+            One per line: <code>GameName#TAG - what they did</code>. League has to be open.
+          </p>
+          <textarea
+            className="pencil-input mt-2 w-full"
+            rows={6}
+            placeholder={'fockoff#OCE - bullied blake\nT1 T1 T1#OCE - AP rakan'}
+            value={bulk}
+            onChange={(e) => setBulk(e.target.value)}
+          />
+          <button
+            type="button"
+            className="crayon-btn mt-2"
+            style={
+              { '--btn-color': 'var(--color-crayon-red)', color: '#fff' } as React.CSSProperties
+            }
+            disabled={busy || !bulk.trim()}
+            onClick={() => void importBulk()}
+          >
+            {busy ? 'Adding…' : 'Add them all'}
+          </button>
+          {bulkResult && (
+            <div className="hand mt-2">
+              <p>Added {bulkResult.added}.</p>
+              {bulkResult.missed.length > 0 && (
+                <p className="text-crayon-red">
+                  Couldn&apos;t find: {bulkResult.missed.join(', ')}. Check the tag and try those
+                  again.
+                </p>
+              )}
+            </div>
+          )}
+        </details>
       </form>
 
-      <input
-        className="w-full rounded bg-zinc-900 px-3 py-2 text-sm"
-        placeholder="Search players or notes"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
+      <div className="row mt-6">
+        <input
+          className="pencil-input w-full"
+          placeholder="Search names or notes"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
 
-      {grouped.length === 0 && <p className="text-sm text-zinc-500">Nobody on the list yet.</p>}
-      <ul className="space-y-3">
+      {grouped.length === 0 && (
+        <p className="scratched mt-2">
+          {flags.length === 0
+            ? "Nobody's on the list yet. Everyone has been good. Suspicious."
+            : 'No one matches that.'}
+        </p>
+      )}
+      <ul className="mt-2">
         {grouped.map((row) => (
-          <li key={row.puuid} className="rounded-md border border-zinc-800 p-3">
-            <div className="font-medium">{row.name}</div>
-            <ul className="mt-2 space-y-1 text-sm">
-              {row.flags.map((f) => (
-                <li key={f.id} className="flex items-start justify-between gap-3">
-                  <span>
-                    <span className="text-red-300">{f.note}</span>{' '}
-                    <span className="text-zinc-500">
-                      · {f.createdByName} · {new Date(f.createdAt).toLocaleDateString()}
-                    </span>
+          <li key={row.puuid}>
+            <div className="row">
+              <span className="row-name is-naughty">
+                <Scribble />
+                {row.name}
+              </span>
+            </div>
+            {row.flags.map((f) => (
+              <div key={f.id} className="row pl-8">
+                <span className="note">
+                  “{f.note}”{' '}
+                  <span className="note-by">
+                    says {f.createdByName}, {new Date(f.createdAt).toLocaleDateString()}
                   </span>
-                  {f.createdBy === userId && (
-                    <button
-                      aria-label="Delete note"
-                      className="text-xs text-zinc-500 hover:text-red-400"
-                      onClick={() => void onRemove(f.id)}
-                    >
-                      Delete
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                </span>
+                {f.createdBy === userId && (
+                  <button
+                    aria-label={`Forgive: ${f.note}`}
+                    className="link-btn ml-auto"
+                    onClick={() => void onRemove(f.id)}
+                  >
+                    forgive
+                  </button>
+                )}
+              </div>
+            ))}
           </li>
         ))}
       </ul>

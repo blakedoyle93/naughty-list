@@ -60,7 +60,7 @@ describe('NaughtyList', () => {
     const onRemove = vi.fn()
     render(<NaughtyList flags={flags} onAdd={vi.fn()} onRemove={onRemove} userId="me" />)
     await screen.findByText('Darius#0001')
-    const dels = screen.getAllByRole('button', { name: /delete/i })
+    const dels = screen.getAllByRole('button', { name: /forgive/i })
     expect(dels).toHaveLength(1)
     await userEvent.click(dels[0])
     expect(onRemove).toHaveBeenCalledWith('1')
@@ -70,7 +70,34 @@ describe('NaughtyList', () => {
     render(<NaughtyList flags={[]} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
     await userEvent.type(screen.getByPlaceholderText(/gamename#tag/i), 'NewGuy#TAG')
     await userEvent.type(screen.getByPlaceholderText(/what did they do/i), 'griefed')
-    await userEvent.click(screen.getByRole('button', { name: /add/i }))
+    await userEvent.click(screen.getByRole('button', { name: /add to list/i }))
     expect(onAdd).toHaveBeenCalledWith('N', 'griefed')
+  })
+  it('imports a pasted list and reports misses', async () => {
+    const onAdd = vi.fn().mockResolvedValue(undefined)
+    ;(window.naughty.invoke as ReturnType<typeof vi.fn>).mockImplementation(
+      async (ch: string, ...args: unknown[]) => {
+        if (ch === 'players:list') return []
+        if (ch === 'players:lookup') {
+          const id = args[0] as { gameName: string; tagLine: string }
+          return id.gameName === 'ghost'
+            ? null
+            : { puuid: `P-${id.gameName}`, ...id, region: null, lastSeenAt: '' }
+        }
+        return null
+      }
+    )
+    render(<NaughtyList flags={[]} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
+    await userEvent.click(screen.getByText(/paste it here/i))
+    await userEvent.type(
+      screen.getByPlaceholderText(/fockoff/i),
+      'a#OCE - inted{enter}ghost#OCE - afk{enter}notag - x'
+    )
+    await userEvent.click(screen.getByRole('button', { name: /add them all/i }))
+    expect(await screen.findByText(/added 1/i)).toBeInTheDocument()
+    expect(onAdd).toHaveBeenCalledWith('P-a', 'inted')
+    expect(screen.getByText(/couldn't find/i)).toHaveTextContent(
+      'notag - x (needs a #TAG), ghost#OCE'
+    )
   })
 })

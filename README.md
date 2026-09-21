@@ -16,6 +16,19 @@ Windows and macOS.
    you were given.
 4. Leave it running in the tray. It finds the League client on its own.
 
+That's it. The app is already pointed at the shared backend; the invite code
+is the only thing you need from whoever runs the crew.
+
+### Adding a lot of people at once
+
+**The list** tab → "Got a whole list? Paste it here". One per line, League open:
+
+```
+GameName#TAG - what they did
+```
+
+`seed/naughty-list.txt` is the starter list.
+
 ## How detection works
 
 | When                  | Who we can see                           | Why                                                       |
@@ -51,6 +64,26 @@ Supabase dashboard setup (once):
   application whose redirect is `https://<project-ref>.supabase.co/auth/v1/callback`.
 - Authentication → URL Configuration → Redirect URLs: add
   `http://localhost:53682/callback`.
+
+## Contributing
+
+`main` is protected: nobody pushes to it directly, changes land through a PR
+with one approval and green CI.
+
+```bash
+git clone git@github.com:blakedoyle93/naughty-list.git
+cd naughty-list
+cp .env.example .env          # ask Blake for the Supabase URL + anon key
+npm install
+git checkout -b feat/your-thing
+npm run dev                   # hack
+npm test && npm run lint && npm run typecheck
+git push -u origin feat/your-thing
+gh pr create                  # or open one on GitHub
+```
+
+Conventional commit messages (`feat:`, `fix:`, `chore:`). Prettier and ESLint
+run in CI, so run them locally first.
 
 ## Release
 

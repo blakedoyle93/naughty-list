@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { CurrentGame as Game, Hit, LcuState, Player } from '@shared/types'
+import { Scribble } from '../components/Scribble'
+import { Sticker } from '../components/Sticker'
 
 interface Props {
   game: Game | null
@@ -8,20 +10,30 @@ interface Props {
   onFlag: (puuid: string, note: string) => Promise<void>
 }
 
+const PHASE_WORDS: Record<string, string> = {
+  ChampSelect: 'Picking champs',
+  GameStart: 'Loading in',
+  InProgress: 'Playing',
+  WaitingForStats: 'Game over, waiting for the scoreboard',
+  PreEndOfGame: 'Game over',
+  EndOfGame: 'Scoreboard. Time to tell on people.',
+  Reconnect: 'Reconnecting'
+}
+
 export function CurrentGame({ game, hits, lcu, onFlag }: Props): React.JSX.Element {
   if (lcu === 'disconnected') {
     return (
-      <Empty
-        title="League client not detected"
-        body="Open the League client and this will connect automatically."
+      <Scrap
+        title="League isn't open"
+        body="Open the League client. This page fills in by itself once you're in a game."
       />
     )
   }
   if (!game) {
     return (
-      <Empty
+      <Scrap
         title="Not in a game"
-        body="Queue up. Flagged players show here from champ select onward."
+        body="Go queue up. Anyone on the list gets circled in red the moment we can see them."
       />
     )
   }
@@ -33,37 +45,39 @@ export function CurrentGame({ game, hits, lcu, onFlag }: Props): React.JSX.Eleme
   const enemies = game.players.filter((p) => p.team === 'enemy')
 
   return (
-    <div className="space-y-6">
-      <div className="text-sm text-zinc-400">
-        Phase: <span className="text-zinc-100">{game.phase}</span>
-      </div>
+    <div>
+      <p className="scratched">{PHASE_WORDS[game.phase] ?? game.phase}</p>
+      {hits.length > 0 && (
+        <div className="my-2">
+          <Sticker color="red" tilt={-6} slap>
+            {hits.length === 1
+              ? '1 naughty person in this game'
+              : `${hits.length} naughty people in this game`}
+          </Sticker>
+        </div>
+      )}
+      <TeamList title="Us" players={allies} hitFor={hitFor} canFlag={canFlag} onFlag={onFlag} />
       <TeamList
-        title="Your team"
-        players={allies}
+        title="Them"
+        players={enemies}
         hitFor={hitFor}
         canFlag={canFlag}
         onFlag={onFlag}
+        hiddenNote={
+          game.enemiesHidden
+            ? "Riot won't tell us who they are until the loading screen."
+            : undefined
+        }
       />
-      {game.enemiesHidden ? (
-        <p className="text-sm text-zinc-500 italic">Enemies hidden by Riot until loading screen.</p>
-      ) : (
-        <TeamList
-          title="Enemy team"
-          players={enemies}
-          hitFor={hitFor}
-          canFlag={canFlag}
-          onFlag={onFlag}
-        />
-      )}
     </div>
   )
 }
 
-function Empty({ title, body }: { title: string; body: string }): React.JSX.Element {
+function Scrap({ title, body }: { title: string; body: string }): React.JSX.Element {
   return (
-    <div className="rounded-lg border border-zinc-800 p-8 text-center">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm text-zinc-400">{body}</p>
+    <div className="scrap mt-6 max-w-md">
+      <h2 className="hand text-2xl leading-tight">{title}</h2>
+      <p className="mt-2 text-ink-soft">{body}</p>
     </div>
   )
 }
@@ -74,21 +88,26 @@ function TeamList(props: {
   hitFor: (p: Player) => Hit | undefined
   canFlag: boolean
   onFlag: Props['onFlag']
+  hiddenNote?: string
 }): React.JSX.Element {
   return (
-    <section>
-      <h3 className="mb-2 text-xs uppercase tracking-wide text-zinc-500">{props.title}</h3>
-      <ul className="space-y-2">
-        {props.players.map((p, i) => (
-          <PlayerRow
-            key={p.puuid ?? `${p.gameName}-${i}`}
-            player={p}
-            hit={props.hitFor(p)}
-            canFlag={props.canFlag}
-            onFlag={props.onFlag}
-          />
-        ))}
-      </ul>
+    <section className="mt-4">
+      <h3 className="section-heading">{props.title}</h3>
+      {props.hiddenNote ? (
+        <p className="scratched">{props.hiddenNote}</p>
+      ) : (
+        <ul>
+          {props.players.map((p, i) => (
+            <PlayerRow
+              key={p.puuid ?? `${p.gameName}-${i}`}
+              player={p}
+              hit={props.hitFor(p)}
+              canFlag={props.canFlag}
+              onFlag={props.onFlag}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
@@ -107,44 +126,38 @@ function PlayerRow({
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const name = player.gameName ? `${player.gameName}#${player.tagLine}` : 'Hidden player'
+  const name = player.gameName ? `${player.gameName}#${player.tagLine}` : 'someone Riot is hiding'
 
   return (
-    <li
-      className={`rounded-md border p-3 ${hit ? 'border-red-600 bg-red-950/40' : 'border-zinc-800'}`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="font-medium">
-            {hit ? '⚠ ' : ''}
-            {name}
-          </div>
-          {player.championName && (
-            <div className="text-xs text-zinc-500">{player.championName}</div>
-          )}
-        </div>
-        {canFlag && player.puuid && (
-          <button
-            className="rounded bg-zinc-800 px-3 py-1 text-sm hover:bg-zinc-700"
-            onClick={() => setOpen((v) => !v)}
-          >
-            Flag
+    <li>
+      <div className="row">
+        <span className={`row-name ${hit ? 'is-naughty' : ''}`}>
+          {hit && <Scribble />}
+          {name}
+        </span>
+        {player.championName && <span className="scratched">as {player.championName}</span>}
+        {hit && (
+          <Sticker color="red" tilt={6} slap>
+            naughty
+          </Sticker>
+        )}
+        {canFlag && player.puuid && !open && (
+          <button className="link-btn ml-auto" onClick={() => setOpen(true)}>
+            tell on them
           </button>
         )}
       </div>
-      {hit && (
-        <ul className="mt-2 space-y-1 text-sm">
-          {hit.flags.map((f) => (
-            <li key={f.id}>
-              <span className="text-red-300">{f.note}</span>{' '}
-              <span className="text-zinc-500">· {f.createdByName}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {hit &&
+        hit.flags.map((f) => (
+          <div key={f.id} className="row pl-8">
+            <span className="note">
+              “{f.note}” <span className="note-by">says {f.createdByName}</span>
+            </span>
+          </div>
+        ))}
       {open && (
         <form
-          className="mt-3 flex gap-2"
+          className="row gap-2 pl-8"
           onSubmit={async (e) => {
             e.preventDefault()
             if (!player.puuid || !note.trim()) return
@@ -159,17 +172,24 @@ function PlayerRow({
           }}
         >
           <input
-            className="flex-1 rounded bg-zinc-900 px-2 py-1 text-sm"
+            className="pencil-input flex-1"
             placeholder="What did they do?"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
+            autoFocus
           />
           <button
-            className="rounded bg-red-700 px-3 py-1 text-sm disabled:opacity-50"
+            className="crayon-btn"
+            style={
+              { '--btn-color': 'var(--color-crayon-red)', color: '#fff' } as React.CSSProperties
+            }
             disabled={saving || !note.trim()}
           >
-            Save
+            Add to list
+          </button>
+          <button type="button" className="link-btn" onClick={() => setOpen(false)}>
+            never mind
           </button>
         </form>
       )}

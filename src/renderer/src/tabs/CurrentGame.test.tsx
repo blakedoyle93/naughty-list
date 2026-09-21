@@ -34,7 +34,7 @@ const hits: Hit[] = [
 describe('CurrentGame', () => {
   it('shows disconnected state', () => {
     render(<CurrentGame game={null} hits={[]} lcu="disconnected" onFlag={vi.fn()} />)
-    expect(screen.getByText(/league client not detected/i)).toBeInTheDocument()
+    expect(screen.getByText(/league isn't open/i)).toBeInTheDocument()
   })
   it('highlights flagged players with notes', () => {
     render(<CurrentGame game={game} hits={hits} lcu="connected" onFlag={vi.fn()} />)
@@ -51,7 +51,9 @@ describe('CurrentGame', () => {
         onFlag={vi.fn()}
       />
     )
-    expect(screen.getByText(/enemies hidden by riot until loading screen/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/won't tell us who they are until the loading screen/i)
+    ).toBeInTheDocument()
   })
   it('lets you flag a player in EndOfGame', async () => {
     const onFlag = vi.fn().mockResolvedValue(undefined)
@@ -63,9 +65,9 @@ describe('CurrentGame', () => {
         onFlag={onFlag}
       />
     )
-    await userEvent.click(screen.getAllByRole('button', { name: /flag/i })[1])
+    await userEvent.click(screen.getAllByRole('button', { name: /tell on them/i })[1])
     await userEvent.type(screen.getByPlaceholderText(/what did they do/i), 'ran it down')
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    await userEvent.click(screen.getByRole('button', { name: /add to list/i }))
     expect(onFlag).toHaveBeenCalledWith('D', 'ran it down')
   })
 })
