@@ -3440,7 +3440,7 @@ dmg:
 npmRebuild: false
 publish:
   provider: github
-  owner: REPLACE_WITH_GITHUB_USER
+  owner: blakedoyle93
   repo: naughty-list
   releaseType: release
 ```
