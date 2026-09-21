@@ -21,6 +21,7 @@ select throws_ok($$ select public.join_crew('NOPE1234') $$, 'invalid invite code
 -- capture A's invite code as superuser, then join as B
 reset role;
 create temp table t as select invite_code from public.crews where name = 'Crew A';
+grant select on t to authenticated;
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated","user_metadata":{"full_name":"UserB"}}';
 select lives_ok(format($$ select public.join_crew(%L) $$, (select invite_code from t)), 'B joins with code');
