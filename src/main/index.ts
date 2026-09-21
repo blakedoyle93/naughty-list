@@ -185,7 +185,10 @@ void app.whenReady().then(() => {
   handle('flags:delete', (id) => store.deleteFlag(id))
   handle('players:list', () => store.players())
   handle('players:lookup', async (id) => {
-    const rec = currentLcuApi ? await currentLcuApi.lookupAlias(id) : null
+    const rec = currentLcuApi
+      ? ((await currentLcuApi.lookupAlias(id)) ??
+        (id.tagLine ? null : await currentLcuApi.lookupByName(id.gameName)))
+      : null
     if (rec) await store.upsertPlayers([rec])
     return rec
   })

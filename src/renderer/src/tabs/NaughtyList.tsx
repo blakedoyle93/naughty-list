@@ -19,6 +19,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [bulk, setBulk] = useState('')
+  const [defaultTag, setDefaultTag] = useState('OCE')
   const [bulkResult, setBulkResult] = useState<{ added: number; missed: string[] } | null>(null)
 
   const grouped = useMemo(() => {
@@ -64,16 +65,18 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   }
 
   async function importBulk(): Promise<void> {
-    const { entries, bad } = parseImportLines(bulk)
+    const { entries, bad } = parseImportLines(bulk, defaultTag)
     setBusy(true)
     setBulkResult(null)
     const missed = bad.map((l) => `${l} (needs a #TAG)`)
     let added = 0
     try {
       for (const e of entries) {
-        const rec = await lookup({ gameName: e.gameName, tagLine: e.tagLine })
+        const rec =
+          (await lookup({ gameName: e.gameName, tagLine: e.tagLine })) ??
+          (e.tagLine ? await lookup({ gameName: e.gameName, tagLine: '' }) : null)
         if (!rec) {
-          missed.push(`${e.gameName}#${e.tagLine}`)
+          missed.push(e.tagLine ? `${e.gameName}#${e.tagLine}` : e.gameName)
           continue
         }
         await onAdd(rec.puuid, e.note)
@@ -124,8 +127,18 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
         <details className="mt-3">
           <summary className="link-btn">Got a whole list? Paste it here</summary>
           <p className="note-by mt-2">
-            One per line: <code>GameName#TAG - what they did</code>. League has to be open.
+            One per line: <code>GameName#TAG - what they did</code>. League has to be open. The tag
+            is optional: we try the one below, then a plain name search.
           </p>
+          <label className="row mt-2">
+            <span className="note">No tag? Try</span>
+            <input
+              className="pencil-input w-24"
+              aria-label="Default tag"
+              value={defaultTag}
+              onChange={(e) => setDefaultTag(e.target.value)}
+            />
+          </label>
           <textarea
             className="pencil-input mt-2 w-full"
             rows={6}

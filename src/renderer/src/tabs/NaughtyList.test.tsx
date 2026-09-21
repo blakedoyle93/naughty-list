@@ -91,13 +91,12 @@ describe('NaughtyList', () => {
     await userEvent.click(screen.getByText(/paste it here/i))
     await userEvent.type(
       screen.getByPlaceholderText(/fockoff/i),
-      'a#OCE - inted{enter}ghost#OCE - afk{enter}notag - x'
+      'a#OCE - inted{enter}ghost#OCE - afk{enter}b - x'
     )
     await userEvent.click(screen.getByRole('button', { name: /add them all/i }))
-    expect(await screen.findByText(/added 1/i)).toBeInTheDocument()
+    expect(await screen.findByText(/added 2/i)).toBeInTheDocument()
     expect(onAdd).toHaveBeenCalledWith('P-a', 'inted')
-    expect(screen.getByText(/couldn't find/i)).toHaveTextContent(
-      'notag - x (needs a #TAG), ghost#OCE'
-    )
+    expect(onAdd).toHaveBeenCalledWith('P-b', 'x')
+    expect(screen.getByText(/couldn't find/i)).toHaveTextContent('ghost#OCE')
   })
 })

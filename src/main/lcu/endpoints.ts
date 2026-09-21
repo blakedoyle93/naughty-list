@@ -14,6 +14,8 @@ export interface LcuApi {
   getChampSelectPlayers(): Promise<Player[]>
   getEogPlayers(): Promise<{ gameId: string; players: Player[] }>
   lookupAlias(id: RiotId): Promise<PlayerRecord | null>
+  /** Legacy name-only search. Best effort: works when the game name is unique on the region. */
+  lookupByName(gameName: string): Promise<PlayerRecord | null>
   getSummonerById(summonerId: number): Promise<PlayerRecord | null>
 }
 
@@ -119,6 +121,18 @@ export function createLcuApi(client: Getter): LcuApi {
         return parsed.success ? toRecord(parsed.data) : null
       } catch (e) {
         if (!(e instanceof LcuHttpError)) log('lookupAlias', e)
+        return null
+      }
+    },
+
+    async lookupByName(gameName) {
+      try {
+        const parsed = SummonerSchema.safeParse(
+          await client.get(`/lol-summoner/v1/summoners?name=${encodeURIComponent(gameName)}`)
+        )
+        return parsed.success && parsed.data.puuid ? toRecord(parsed.data) : null
+      } catch (e) {
+        if (!(e instanceof LcuHttpError)) log('lookupByName', e)
         return null
       }
     },

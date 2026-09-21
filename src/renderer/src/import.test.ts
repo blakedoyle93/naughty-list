@@ -14,9 +14,16 @@ describe('parseImportLines', () => {
     const r = parseImportLines('a#1 – x\nb#2: y\njared#OCE')
     expect(r.entries.map((e) => e.note)).toEqual(['x', 'y', 'no reason given'])
   })
-  it('reports lines without a tag', () => {
+  it('leaves the tag empty when there is no default (name-only lookup)', () => {
     const r = parseImportLines('jared - no tag here')
-    expect(r.entries).toEqual([])
-    expect(r.bad).toEqual(['jared - no tag here'])
+    expect(r.entries).toEqual([{ gameName: 'jared', tagLine: '', note: 'no tag here' }])
+    expect(r.bad).toEqual([])
+  })
+  it('fills in the default tag, keeping explicit ones', () => {
+    const r = parseImportLines('T1 T1 T1 - AP rakan\nBens Cousins#NA1 - ks', '#OCE')
+    expect(r.entries).toEqual([
+      { gameName: 'T1 T1 T1', tagLine: 'OCE', note: 'AP rakan' },
+      { gameName: 'Bens Cousins', tagLine: 'NA1', note: 'ks' }
+    ])
   })
 })
