@@ -1,0 +1,1 @@
+LeagueClientUx:12345:54321:AbCdEfGhIjKlMnOpQrStUv:https
