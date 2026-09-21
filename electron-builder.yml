@@ -1,0 +1,41 @@
+appId: gg.naughtylist
+productName: Naughty List
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
+  - '!{supabase,test,docs}/**'
+asarUnpack:
+  - resources/**
+win:
+  executableName: NaughtyList
+  target: [nsis]
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  category: public.app-category.games
+  # unsigned for MVP: friends right-click → Open once
+  identity: null
+  hardenedRuntime: false
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: blakedoyle93
+  repo: naughty-list
+  releaseType: release

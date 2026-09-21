@@ -1,0 +1,26 @@
+[
+  {
+    "championName": "Lee Sin",
+    "riotId": "Blake#NA1",
+    "riotIdGameName": "Blake",
+    "riotIdTagLine": "NA1",
+    "summonerName": "Blake",
+    "team": "ORDER"
+  },
+  {
+    "championName": "Lux",
+    "riotId": "Ally#NA1",
+    "riotIdGameName": "Ally",
+    "riotIdTagLine": "NA1",
+    "summonerName": "Ally",
+    "team": "ORDER"
+  },
+  {
+    "championName": "Darius",
+    "riotId": "xXDariusMainXx#0001",
+    "riotIdGameName": "xXDariusMainXx",
+    "riotIdTagLine": "0001",
+    "summonerName": "xXDariusMainXx",
+    "team": "CHAOS"
+  }
+]
