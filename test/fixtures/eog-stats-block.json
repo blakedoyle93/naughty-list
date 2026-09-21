@@ -1,0 +1,29 @@
+{
+  "gameId": 7001234567,
+  "teams": [
+    {
+      "isPlayerTeam": true,
+      "players": [
+        {
+          "puuid": "puuid-me",
+          "summonerName": "Blake",
+          "riotIdGameName": "Blake",
+          "riotIdTagLine": "NA1",
+          "championId": 64
+        }
+      ]
+    },
+    {
+      "isPlayerTeam": false,
+      "players": [
+        {
+          "puuid": "puuid-enemy-1",
+          "summonerName": "Darius",
+          "riotIdGameName": "xXDariusMainXx",
+          "riotIdTagLine": "0001",
+          "championId": 122
+        }
+      ]
+    }
+  ]
+}
