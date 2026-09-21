@@ -26,4 +26,8 @@ describe('parseImportLines', () => {
       { gameName: 'Bens Cousins', tagLine: 'NA1', note: 'ks' }
     ])
   })
+  it('strips quotes wrapped around a note', () => {
+    const r = parseImportLines('JohnnySins69420 - "saying ez"\nkibryLemon - saying ‘ez’ a lot')
+    expect(r.entries.map((e) => e.note)).toEqual(['saying ez', 'saying ‘ez’ a lot'])
+  })
 })

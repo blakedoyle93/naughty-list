@@ -10,6 +10,14 @@ const LINE = /^(.+?)(?:#([^\s#]+?))?\s*(?:(?:\s[-–]\s*|:\s*)(.*))?$/
  * One player per line: `GameName#TAG - what they did`. The note is optional; so is the
  * tag when `defaultTag` is given (most people never change theirs, e.g. `OCE`).
  */
+/** `"saying ez"` → `saying ez`. Quotes inside the note stay. */
+function stripQuotes(s: string): string {
+  return s
+    .trim()
+    .replace(/^["'“‘](.*)["'”’]$/, '$1')
+    .trim()
+}
+
 export function parseImportLines(
   text: string,
   defaultTag = ''
@@ -27,7 +35,7 @@ export function parseImportLines(
     entries.push({
       gameName: m[1].trim(),
       tagLine: m[2] ?? defaultTag.trim().replace(/^#/, ''),
-      note: (m[3] ?? '').trim() || 'no reason given'
+      note: stripQuotes(m[3] ?? '') || 'no reason given'
     })
   }
   return { entries, bad }
