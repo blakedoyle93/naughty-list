@@ -37,6 +37,7 @@ export function Crew({ auth }: Props): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const [probe, setProbe] = useState('')
   const [probeOut, setProbeOut] = useState('')
+  const [logLines, setLogLines] = useState<string[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -215,6 +216,49 @@ export function Crew({ auth }: Props): React.JSX.Element {
             onBlur={() => void api.invoke('settings:setLockfilePath', lockfile.trim() || null)}
           />
         </div>
+      </details>
+
+      <details
+        className="mt-2"
+        onToggle={(e) => {
+          if (e.currentTarget.open) void api.invoke('log:tail').then(setLogLines)
+        }}
+      >
+        <summary className="link-btn">Something not working? Open the log</summary>
+        <div className="row mt-2">
+          <button
+            className="crayon-btn"
+            style={
+              { '--btn-color': 'var(--color-crayon-green)', color: '#fff' } as React.CSSProperties
+            }
+            onClick={() => void api.invoke('debug:testAlert')}
+          >
+            Send a test alert
+          </button>
+          <button
+            className="link-btn"
+            onClick={() => void api.invoke('log:tail').then(setLogLines)}
+          >
+            refresh
+          </button>
+          <button className="link-btn" onClick={() => void api.invoke('log:open')}>
+            open the log folder
+          </button>
+          <button
+            className="link-btn"
+            onClick={() => void navigator.clipboard.writeText(logLines.join('\n'))}
+          >
+            copy
+          </button>
+        </div>
+        <textarea
+          readOnly
+          aria-label="Log"
+          className="pencil-input mt-2 w-full font-mono text-xs"
+          rows={14}
+          value={logLines.join('\n')}
+          onFocus={(e) => e.currentTarget.select()}
+        />
       </details>
 
       <details className="mt-2">

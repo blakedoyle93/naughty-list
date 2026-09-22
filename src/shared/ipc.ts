@@ -39,6 +39,9 @@ export interface Invoke {
   'players:candidates': { args: [string]; result: RiotId[] }
   'history:list': { args: [number | undefined]; result: PastGame[] }
   'settings:setRegion': { args: [string]; result: void }
+  'log:tail': { args: []; result: string[] }
+  'log:open': { args: []; result: void }
+  'debug:testAlert': { args: []; result: void }
   'auth:signIn': { args: []; result: AuthUser }
   'auth:signOut': { args: []; result: void }
   'auth:get': { args: []; result: AuthUser | null }
