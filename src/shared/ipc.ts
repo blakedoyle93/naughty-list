@@ -24,6 +24,7 @@ export interface PushEvents {
 export interface Invoke {
   'game:get': { args: []; result: { game: CurrentGame | null; hits: Hit[] } }
   'lcu:getState': { args: []; result: LcuState }
+  'lcu:debugLookup': { args: [RiotId]; result: string }
   'flags:list': { args: []; result: Flag[] }
   'flags:add': { args: [{ puuid: string; note: string }]; result: Flag }
   'flags:delete': { args: [id: string]; result: void }

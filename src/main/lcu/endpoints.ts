@@ -4,6 +4,7 @@ import {
   ChampSelectSessionSchema,
   EogStatsBlockSchema,
   GameflowSessionSchema,
+  SummonerLikeSchema,
   SummonerSchema
 } from './schemas'
 
@@ -13,13 +14,27 @@ export interface LcuApi {
   /** allies only (self excluded); puuid null when Riot hides the player */
   getChampSelectPlayers(): Promise<Player[]>
   getEogPlayers(): Promise<{ gameId: string; players: Player[] }>
+  /** Riot ID → player. Tries several LCU endpoints; the client's answer shape varies by patch. */
   lookupAlias(id: RiotId): Promise<PlayerRecord | null>
   /** Legacy name-only search. Best effort: works when the game name is unique on the region. */
   lookupByName(gameName: string): Promise<PlayerRecord | null>
+  /** Raw answers from every lookup endpoint, for the in-app diagnostic. */
+  debugLookup(id: RiotId): Promise<string>
   getSummonerById(summonerId: number): Promise<PlayerRecord | null>
 }
 
 type Getter = { get(path: string): Promise<unknown> }
+
+/** Every way we know to ask the client about a Riot ID, most reliable first. */
+function lookupPaths(id: RiotId): string[] {
+  const name = encodeURIComponent(id.gameName)
+  const tag = encodeURIComponent(id.tagLine)
+  return [
+    `/lol-summoner/v1/summoners?name=${name}%23${tag}`,
+    `/lol-summoner/v1/alias/lookup?gameName=${name}&tagLine=${tag}`,
+    `/lol-summoner/v1/summoners?name=${name}`
+  ]
+}
 
 const log = (msg: string, err: unknown): void => console.warn(`[lcu] ${msg}`, err)
 
@@ -113,28 +128,39 @@ export function createLcuApi(client: Getter): LcuApi {
     },
 
     async lookupAlias(id) {
-      try {
-        const q = `gameName=${encodeURIComponent(id.gameName)}&tagLine=${encodeURIComponent(id.tagLine)}`
-        const parsed = SummonerSchema.safeParse(
-          await client.get(`/lol-summoner/v1/alias/lookup?${q}`)
-        )
-        return parsed.success ? toRecord(parsed.data) : null
-      } catch (e) {
-        if (!(e instanceof LcuHttpError)) log('lookupAlias', e)
-        return null
+      for (const path of lookupPaths(id)) {
+        try {
+          const parsed = SummonerLikeSchema.safeParse(await client.get(path))
+          if (parsed.success && parsed.data?.puuid) return toRecord(parsed.data)
+        } catch (e) {
+          if (!(e instanceof LcuHttpError)) log('lookupAlias', e)
+        }
       }
+      return null
     },
 
     async lookupByName(gameName) {
       try {
-        const parsed = SummonerSchema.safeParse(
+        const parsed = SummonerLikeSchema.safeParse(
           await client.get(`/lol-summoner/v1/summoners?name=${encodeURIComponent(gameName)}`)
         )
-        return parsed.success && parsed.data.puuid ? toRecord(parsed.data) : null
+        return parsed.success && parsed.data?.puuid ? toRecord(parsed.data) : null
       } catch (e) {
         if (!(e instanceof LcuHttpError)) log('lookupByName', e)
         return null
       }
+    },
+
+    async debugLookup(id) {
+      const lines: string[] = []
+      for (const path of lookupPaths(id)) {
+        try {
+          lines.push(`GET ${path}\n${JSON.stringify(await client.get(path), null, 2)}`)
+        } catch (e) {
+          lines.push(`GET ${path}\n${e instanceof LcuHttpError ? `HTTP ${e.status}` : String(e)}`)
+        }
+      }
+      return lines.join('\n\n')
     },
 
     getSummonerById
