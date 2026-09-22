@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
+import { toReadableError } from '../errors'
 import type { Crew, CrewMember, Flag, PlayerRecord, SyncStatus } from '@shared/types'
 
 interface FlagRow {
@@ -187,7 +188,7 @@ export class FlagStore {
       .from('crews')
       .update({ discord_webhook_url: url })
       .eq('id', crew.id)
-    if (error) throw error
+    if (error) throw toReadableError(error, 'save the Discord webhook')
     this.cache.crew = { ...crew, discordWebhookUrl: url }
     this.saveCache()
   }
