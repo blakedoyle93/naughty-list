@@ -41,6 +41,7 @@ export interface WsLike {
   close(): void
   addEventListener(type: 'open', cb: () => void): void
   addEventListener(type: 'close', cb: () => void): void
+  addEventListener(type: 'error', cb: (ev: unknown) => void): void
   addEventListener(type: 'message', cb: (ev: { data: unknown }) => void): void
 }
 export type WsFactory = (url: string, headers: Record<string, string>) => WsLike
@@ -106,6 +107,10 @@ export class LcuClient {
         if (matchesEvent(name, e.uri)) cbs.forEach((fn) => fn(e))
       }
     })
+    // A stale lockfile (client closed or still booting) gives ECONNREFUSED. Without this
+    // listener `ws` rethrows it as an uncaught exception and Electron shows a crash dialog.
+    // 'close' follows and triggers reconnect via LcuConnection.
+    ws.addEventListener('error', () => {})
     ws.addEventListener('close', () => {
       const wasCurrent = this.ws === ws
       this.ws = null

@@ -30,7 +30,11 @@ describe('LcuClient.get', () => {
 })
 
 describe('LcuClient.subscribe', () => {
-  function fakeWs(): WsLike & { fire(type: string, ev?: unknown): void; sent: string[] } {
+  function fakeWs(): WsLike & {
+    fire(type: string, ev?: unknown): void
+    listenerCount(type: string): number
+    sent: string[]
+  } {
     const handlers = new Map<string, Array<(ev: unknown) => void>>()
     const ws = {
       readyState: 0,
@@ -47,6 +51,9 @@ describe('LcuClient.subscribe', () => {
       fire(type: string, ev?: unknown) {
         if (type === 'open') ws.readyState = 1
         handlers.get(type)?.forEach((fn) => fn(ev))
+      },
+      listenerCount(type: string) {
+        return handlers.get(type)?.length ?? 0
       }
     }
     return ws
@@ -71,6 +78,17 @@ describe('LcuClient.subscribe', () => {
     })
     expect(cb).toHaveBeenCalledTimes(1)
     expect(cb.mock.calls[0][0].data).toBe('ChampSelect')
+  })
+
+  it('swallows socket errors (ECONNREFUSED on a stale lockfile) instead of crashing', () => {
+    const ws = fakeWs()
+    const c = new LcuClient(info, { fetch: vi.fn(), makeWs: () => ws })
+    c.subscribe('OnJsonApiEvent', vi.fn())
+    // `ws` turns an unhandled 'error' event into an uncaught exception; a listener must exist
+    expect(() =>
+      ws.fire('error', { message: 'connect ECONNREFUSED 127.0.0.1:56837' })
+    ).not.toThrow()
+    expect(ws.listenerCount('error')).toBe(1)
   })
 
   it('fires onClose when the socket drops', () => {

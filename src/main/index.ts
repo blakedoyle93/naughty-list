@@ -158,6 +158,10 @@ app.on('before-quit', () => {
   quitting = true
 })
 
+// Last line of defence: a tray app must never die on a crash dialog because League hiccuped.
+process.on('uncaughtException', (err) => console.error('[main] uncaught', err))
+process.on('unhandledRejection', (err) => console.error('[main] unhandled rejection', err))
+
 void app.whenReady().then(() => {
   electronApp.setAppUserModelId('gg.naughtylist')
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
