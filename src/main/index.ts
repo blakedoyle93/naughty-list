@@ -168,6 +168,9 @@ void app.whenReady().then(() => {
 
   handle('game:get', () => tracker?.current() ?? { game: null, hits: [] })
   handle('lcu:getState', () => connection.state())
+  handle('lcu:debugLookup', (id) =>
+    currentLcuApi ? currentLcuApi.debugLookup(id) : Promise.resolve("League isn't open.")
+  )
   handle('settings:get', () => ({ lockfilePath: settings.get().lockfilePath }))
   handle('settings:setLockfilePath', (p) => settings.set({ lockfilePath: p }))
   handle('flags:list', () => store.flags())

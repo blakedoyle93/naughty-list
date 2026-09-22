@@ -62,13 +62,55 @@ describe('createLcuApi', () => {
   it('lookupAlias returns a PlayerRecord or null on 404', async () => {
     const ok = createLcuApi(
       clientWith({
-        '/lol-summoner/v1/alias/lookup': { puuid: 'p1', gameName: 'Foo', tagLine: 'BAR' }
+        '/lol-summoner/v1/summoners?name=Foo%23BAR': {
+          puuid: 'p1',
+          gameName: 'Foo',
+          tagLine: 'BAR'
+        }
       })
     )
     const rec = await ok.lookupAlias({ gameName: 'Foo', tagLine: 'BAR' })
     expect(rec).toMatchObject({ puuid: 'p1', gameName: 'Foo', tagLine: 'BAR', region: null })
     const missing = createLcuApi(clientWith({}))
     await expect(missing.lookupAlias({ gameName: 'x', tagLine: 'y' })).resolves.toBeNull()
+  })
+
+  it('lookupAlias falls back to alias/lookup and understands its snake_case shape', async () => {
+    const api = createLcuApi(
+      clientWith({
+        '/lol-summoner/v1/alias/lookup': {
+          puuid: 'p2',
+          alias: { game_name: 'T1 T1 T1', tag_line: 'OCE' }
+        }
+      })
+    )
+    await expect(api.lookupAlias({ gameName: 'T1 T1 T1', tagLine: 'OCE' })).resolves.toMatchObject({
+      puuid: 'p2',
+      gameName: 'T1 T1 T1',
+      tagLine: 'OCE'
+    })
+  })
+
+  it('lookupAlias accepts a list answer and skips entries without a puuid', async () => {
+    const api = createLcuApi(
+      clientWith({
+        '/lol-summoner/v1/summoners?name=Foo%23BAR': [
+          { puuid: 'p3', gameName: 'Foo', tagLine: 'BAR' }
+        ]
+      })
+    )
+    await expect(api.lookupAlias({ gameName: 'Foo', tagLine: 'BAR' })).resolves.toMatchObject({
+      puuid: 'p3'
+    })
+  })
+
+  it('debugLookup reports each endpoint with its body or HTTP status', async () => {
+    const api = createLcuApi(
+      clientWith({ '/lol-summoner/v1/alias/lookup': { puuid: 'p', alias: {} } })
+    )
+    const out = await api.debugLookup({ gameName: 'a', tagLine: 'b' })
+    expect(out).toContain('GET /lol-summoner/v1/summoners?name=a%23b\nHTTP 404')
+    expect(out).toContain('"puuid": "p"')
   })
 
   it('returns [] instead of throwing when champ select payload is malformed', async () => {

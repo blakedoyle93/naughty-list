@@ -16,6 +16,8 @@ export function Crew({ auth }: Props): React.JSX.Element {
   const [sync, setSync] = useState<SyncStatus | null>(null)
   const [lockfile, setLockfile] = useState<string>('')
   const [copied, setCopied] = useState(false)
+  const [probe, setProbe] = useState('')
+  const [probeOut, setProbeOut] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -172,6 +174,48 @@ export function Crew({ auth }: Props): React.JSX.Element {
             onBlur={() => void api.invoke('settings:setLockfilePath', lockfile.trim() || null)}
           />
         </div>
+      </details>
+
+      <details className="mt-2">
+        <summary className="link-btn">Can&apos;t find someone who definitely exists?</summary>
+        <p className="note-by mt-2">
+          Type their Riot ID and we&apos;ll show exactly what League answers. Send that to Blake.
+        </p>
+        <form
+          className="row mt-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const m = probe.trim().match(/^(.+?)#(.+)$/)
+            if (!m) {
+              setProbeOut('Write it like GameName#TAG.')
+              return
+            }
+            setProbeOut('Asking League…')
+            void api
+              .invoke('lcu:debugLookup', { gameName: m[1].trim(), tagLine: m[2].trim() })
+              .then(setProbeOut)
+          }}
+        >
+          <input
+            className="pencil-input flex-1"
+            placeholder="GameName#TAG"
+            aria-label="Riot ID to test"
+            value={probe}
+            onChange={(e) => setProbe(e.target.value)}
+          />
+          <button className="crayon-btn" disabled={!probe.trim()}>
+            Test
+          </button>
+        </form>
+        {probeOut && (
+          <textarea
+            readOnly
+            className="pencil-input mt-2 w-full font-mono text-xs"
+            rows={12}
+            value={probeOut}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        )}
       </details>
     </div>
   )
