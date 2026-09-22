@@ -198,6 +198,12 @@ export class FlagStore {
 
   async upsertPlayers(players: PlayerRecord[]): Promise<void> {
     if (!players.length) return
+    // Cache first: the list renders names from here, so a flag added right after a lookup
+    // must not have to wait for the next refresh (it used to show the raw PUUID).
+    const byPuuid = new Map(this.cache.players.map((p) => [p.puuid, p]))
+    for (const p of players) byPuuid.set(p.puuid, p)
+    this.cache.players = [...byPuuid.values()]
+    this.saveCache()
     try {
       const { error } = await this.deps.supabase
         .from('players')
