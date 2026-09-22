@@ -40,12 +40,16 @@ export function Crew({ auth }: Props): React.JSX.Element {
   const [probe, setProbe] = useState('')
   const [probeOut, setProbeOut] = useState('')
   const [logLines, setLogLines] = useState<string[]>([])
+  const [webhook, setWebhook] = useState('')
+  const [webhookMsg, setWebhookMsg] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const load = auth.user ? api.invoke('crew:get') : Promise.resolve(null)
     void load.then((c) => {
-      if (!cancelled) setCrew(c)
+      if (cancelled) return
+      setCrew(c)
+      setWebhook(c?.crew.discordWebhookUrl ?? '')
     })
     return () => {
       cancelled = true
@@ -191,6 +195,63 @@ export function Crew({ auth }: Props): React.JSX.Element {
         {sync?.online ? 'Synced with your crew.' : 'Offline. Using the last list we saved.'}
         {sync?.pendingWrites ? ` ${sync.pendingWrites} thing(s) waiting to send.` : ''}
       </p>
+
+      {crew && (
+        <section className="scrap mt-6" style={{ '--tilt': '-0.6deg' } as React.CSSProperties}>
+          <h2 className="hand text-2xl leading-tight">Tell the crew on Discord</h2>
+          <p className="note mt-1">
+            In Discord: Server Settings, Integrations, Webhooks, New Webhook, pick a channel, then
+            Copy Webhook URL. Whoever made the crew sets this, and everyone&apos;s app uses it.
+          </p>
+          <input
+            className="pencil-input mt-3 w-full"
+            type="password"
+            placeholder="https://discord.com/api/webhooks/..."
+            value={webhook}
+            onChange={(e) => setWebhook(e.target.value)}
+          />
+          <div className="row mt-3">
+            <button
+              className="crayon-btn"
+              style={
+                {
+                  '--btn-color': 'var(--color-crayon-purple)',
+                  color: '#fff'
+                } as React.CSSProperties
+              }
+              onClick={() => {
+                setWebhookMsg(null)
+                void api
+                  .invoke('crew:setWebhook', webhook.trim() || null)
+                  .then(() => setWebhookMsg('Saved.'))
+                  .catch((e: Error) => setWebhookMsg(e.message))
+              }}
+            >
+              Save
+            </button>
+            <button
+              className="link-btn"
+              onClick={() => {
+                setWebhookMsg(null)
+                void api.invoke('crew:testWebhook').then((r) => {
+                  setWebhookMsg(
+                    r === 'sent'
+                      ? 'Sent. Go look at the channel.'
+                      : r === 'no-webhook'
+                        ? 'Save a webhook first.'
+                        : r === 'bad-webhook'
+                          ? "That isn't a Discord webhook URL."
+                          : "Discord didn't take it. Check the log."
+                  )
+                })
+              }}
+            >
+              Send a test message
+            </button>
+          </div>
+          {webhookMsg && <p className="hand mt-2 text-crayon-red">{webhookMsg}</p>}
+        </section>
+      )}
 
       <div className="mt-6">
         <UpdateBadge />

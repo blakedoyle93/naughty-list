@@ -56,6 +56,11 @@ export interface Invoke {
   'crew:create': { args: [name: string]; result: Crew }
   'crew:join': { args: [inviteCode: string]; result: Crew }
   'sync:status': { args: []; result: SyncStatus }
+  'crew:setWebhook': { args: [url: string | null]; result: void }
+  'crew:testWebhook': {
+    args: []
+    result: 'sent' | 'no-webhook' | 'bad-webhook' | 'nothing-to-say' | 'failed'
+  }
   'settings:get': {
     args: []
     result: { lockfilePath: string | null; region: string; overlayEnabled: boolean }

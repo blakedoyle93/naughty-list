@@ -70,6 +70,8 @@ export interface Crew {
   id: string
   name: string
   inviteCode: string
+  /** where alerts get posted, set by whoever made the crew */
+  discordWebhookUrl: string | null
 }
 
 export interface CrewMember {

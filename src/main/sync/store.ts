@@ -23,6 +23,7 @@ interface CrewRow {
   id: string
   name: string
   invite_code: string
+  discord_webhook_url: string | null
 }
 
 interface Cache {
@@ -49,7 +50,12 @@ const mapPlayer = (r: PlayerRow): PlayerRecord => ({
   region: r.region,
   lastSeenAt: r.last_seen_at
 })
-const mapCrew = (r: CrewRow): Crew => ({ id: r.id, name: r.name, inviteCode: r.invite_code })
+const mapCrew = (r: CrewRow): Crew => ({
+  id: r.id,
+  name: r.name,
+  inviteCode: r.invite_code,
+  discordWebhookUrl: r.discord_webhook_url ?? null
+})
 const toPlayerRow = (p: PlayerRecord): PlayerRow => ({
   puuid: p.puuid,
   game_name: p.gameName,
@@ -167,6 +173,47 @@ export class FlagStore {
     if (error) throw error
     await this.refresh()
     return mapCrew(data as CrewRow)
+  }
+
+  /** The webhook the tracker posts to, straight from the cache so it works offline. */
+  webhookUrl(): string | null {
+    return this.cache.crew?.discordWebhookUrl ?? null
+  }
+
+  async setWebhookUrl(url: string | null): Promise<void> {
+    const crew = this.cache.crew
+    if (!crew) throw new Error('join or create a crew first')
+    const { error } = await this.deps.supabase
+      .from('crews')
+      .update({ discord_webhook_url: url })
+      .eq('id', crew.id)
+    if (error) throw error
+    this.cache.crew = { ...crew, discordWebhookUrl: url }
+    this.saveCache()
+  }
+
+  /**
+   * Take the right to post about this game. If three of us are in the same
+   * lobby, only the one who wins this insert sends the Discord message.
+   * Offline or on any error we say no, because a missed post beats five.
+   */
+  async claimAlert(gameId: string): Promise<boolean> {
+    const crew = this.cache.crew
+    if (!crew) return false
+    try {
+      const { data, error } = await this.deps.supabase
+        .from('alert_posts')
+        .upsert(
+          { crew_id: crew.id, game_id: gameId },
+          { onConflict: 'crew_id,game_id', ignoreDuplicates: true }
+        )
+        .select('game_id')
+      if (error) throw error
+      return (data ?? []).length > 0
+    } catch (e) {
+      console.warn('[store] could not claim the alert', e)
+      return false
+    }
   }
 
   async addFlag(input: { puuid: string; note: string }, player?: PlayerRecord): Promise<Flag> {
