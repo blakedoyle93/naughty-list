@@ -14,12 +14,18 @@ interface Props {
 export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JSX.Element {
   const { players, lookup } = usePlayers(flags.length)
   const [q, setQ] = useState('')
-  const [riotId, setRiotId] = useState('')
+  const [gameName, setGameName] = useState('')
+  const [tag, setTag] = useState(() => {
+    try {
+      return localStorage.getItem('lastTag') ?? 'OCE'
+    } catch {
+      return 'OCE'
+    }
+  })
   const [note, setNote] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [bulk, setBulk] = useState('')
-  const [defaultTag, setDefaultTag] = useState('OCE')
   const [bulkResult, setBulkResult] = useState<{ added: number; missed: string[] } | null>(null)
 
   const grouped = useMemo(() => {
@@ -39,23 +45,39 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     )
   }, [flags, players, q])
 
+  /** Pasting "Name#TAG" into the name box splits it across both fields. */
+  function onNameChange(v: string): void {
+    const m = v.match(/^(.+?)#(\S+)$/)
+    if (m) {
+      setGameName(m[1].trim())
+      setTag(m[2])
+    } else {
+      setGameName(v)
+    }
+  }
+
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setErr(null)
-    const m = riotId.trim().match(/^(.+?)#(.+)$/)
-    if (!m) {
-      setErr('Write it like GameName#TAG, with the hashtag.')
-      return
-    }
+    const name = gameName.trim()
+    const tagLine = tag.trim().replace(/^#/, '')
+    if (!name) return
     setBusy(true)
     try {
-      const rec = await lookup({ gameName: m[1], tagLine: m[2] })
+      const rec =
+        (await lookup({ gameName: name, tagLine })) ??
+        (tagLine ? await lookup({ gameName: name, tagLine: '' }) : null)
       if (!rec) {
-        setErr("Can't find that player. Check the spelling and tag.")
+        setErr(`Can't find ${name}#${tagLine || '?'}. Check the spelling and tag.`)
         return
       }
+      try {
+        localStorage.setItem('lastTag', tagLine)
+      } catch {
+        /* private window etc. */
+      }
       await onAdd(rec.puuid, note.trim())
-      setRiotId('')
+      setGameName('')
       setNote('')
     } catch (e) {
       setErr((e as Error).message)
@@ -65,7 +87,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   }
 
   async function importBulk(): Promise<void> {
-    const { entries, bad } = parseImportLines(bulk, defaultTag)
+    const { entries, bad } = parseImportLines(bulk, tag)
     setBusy(true)
     setBulkResult(null)
     const missed = bad.map((l) => `${l} (needs a #TAG)`)
@@ -100,12 +122,26 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
       >
         <h2 className="hand text-2xl leading-tight">Tell on someone</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            className="pencil-input min-w-44 flex-1"
-            placeholder="GameName#TAG"
-            value={riotId}
-            onChange={(e) => setRiotId(e.target.value)}
-          />
+          <span className="riot-id">
+            <input
+              className="pencil-input"
+              placeholder="Game name"
+              aria-label="Game name"
+              value={gameName}
+              onChange={(e) => onNameChange(e.target.value)}
+            />
+            <span className="riot-id-hash" aria-hidden="true">
+              #
+            </span>
+            <input
+              className="pencil-input riot-id-tag"
+              placeholder="TAG"
+              aria-label="Tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value.replace(/^#/, ''))}
+              maxLength={5}
+            />
+          </span>
           <input
             className="pencil-input min-w-60 flex-[2]"
             placeholder="What did they do?"
@@ -118,7 +154,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
             style={
               { '--btn-color': 'var(--color-crayon-red)', color: '#fff' } as React.CSSProperties
             }
-            disabled={busy || !riotId.trim() || !note.trim()}
+            disabled={busy || !gameName.trim() || !note.trim()}
           >
             Add to list
           </button>
@@ -135,8 +171,8 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
             <input
               className="pencil-input w-24"
               aria-label="Default tag"
-              value={defaultTag}
-              onChange={(e) => setDefaultTag(e.target.value)}
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
             />
           </label>
           <textarea

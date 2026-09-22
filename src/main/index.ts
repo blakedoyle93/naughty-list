@@ -209,9 +209,14 @@ void app.whenReady().then(() => {
   connection.start()
   void auth.start().then(() => store.start())
 
+  // Auto-update from GitHub Releases: check at launch and every 4h while sitting in the tray.
+  // Downloads in the background, notifies, installs on quit. macOS needs a signed build for this.
   if (!is.dev) {
     autoUpdater.autoDownload = true
-    void autoUpdater.checkForUpdatesAndNotify()
+    autoUpdater.on('error', (e) => console.warn('[updater]', e.message))
+    const check = (): void => void autoUpdater.checkForUpdatesAndNotify().catch(() => {})
+    check()
+    setInterval(check, 4 * 60 * 60 * 1000)
   }
 
   app.on('activate', () => {

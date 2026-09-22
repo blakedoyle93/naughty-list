@@ -68,10 +68,19 @@ describe('NaughtyList', () => {
   it('adds by riot id via lookup', async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined)
     render(<NaughtyList flags={[]} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
-    await userEvent.type(screen.getByPlaceholderText(/gamename#tag/i), 'NewGuy#TAG')
+    await userEvent.type(screen.getByLabelText('Game name'), 'NewGuy')
+    await userEvent.clear(screen.getByLabelText('Tag'))
+    await userEvent.type(screen.getByLabelText('Tag'), 'TAG')
     await userEvent.type(screen.getByPlaceholderText(/what did they do/i), 'griefed')
     await userEvent.click(screen.getByRole('button', { name: /add to list/i }))
     expect(onAdd).toHaveBeenCalledWith('N', 'griefed')
+  })
+  it('splits a pasted Name#TAG across the two boxes', async () => {
+    render(<NaughtyList flags={[]} onAdd={vi.fn()} onRemove={vi.fn()} userId="me" />)
+    await userEvent.click(screen.getByLabelText('Game name'))
+    await userEvent.paste('T1 T1 T1#OCE')
+    expect(screen.getByLabelText('Game name')).toHaveValue('T1 T1 T1')
+    expect(screen.getByLabelText('Tag')).toHaveValue('OCE')
   })
   it('imports a pasted list and reports misses', async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined)
