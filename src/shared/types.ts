@@ -88,6 +88,16 @@ export interface SyncStatus {
   lastSyncedAt: string | null
 }
 
+export interface UpdateStatus {
+  version: string
+  /** 'idle' before the first check. 'ready' means a downloaded update is waiting for a restart. */
+  state: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'ready' | 'error'
+  latest: string | null
+  /** true when this build can install updates itself (Windows). */
+  canSelfUpdate: boolean
+  message: string | null
+}
+
 export interface RiotId {
   gameName: string
   tagLine: string
