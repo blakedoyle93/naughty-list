@@ -3,9 +3,11 @@ import { dirname } from 'path'
 
 export interface Settings {
   lockfilePath: string | null
+  /** op.gg region slug used when searching for a tag we don't have. */
+  region: string
 }
 
-const DEFAULTS: Settings = { lockfilePath: null }
+const DEFAULTS: Settings = { lockfilePath: null, region: 'oce' }
 
 export class SettingsStore {
   private cache: Settings

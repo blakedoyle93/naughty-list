@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Flag } from '@shared/types'
 import { usePlayers } from '../hooks/usePlayers'
+import { api } from '../api'
 import { Scribble } from '../components/Scribble'
 import { parseImportLines } from '../import'
 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JSX.Element {
-  const { players, lookup } = usePlayers(flags.length)
+  const { players } = usePlayers(flags.length)
   const [q, setQ] = useState('')
   const [gameName, setGameName] = useState('')
   const [tag, setTag] = useState(() => {
@@ -27,6 +28,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   const [busy, setBusy] = useState(false)
   const [bulk, setBulk] = useState('')
   const [bulkResult, setBulkResult] = useState<{ added: number; missed: string[] } | null>(null)
+  const [foundVia, setFoundVia] = useState<string | null>(null)
 
   const grouped = useMemo(() => {
     const byPuuid = new Map<string, Flag[]>()
@@ -64,19 +66,26 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     if (!name) return
     setBusy(true)
     try {
-      const rec =
-        (await lookup({ gameName: name, tagLine })) ??
-        (tagLine ? await lookup({ gameName: name, tagLine: '' }) : null)
-      if (!rec) {
-        setErr(`Can't find ${name}#${tagLine || '?'}. Check the spelling and tag.`)
+      const hit = await api.invoke('players:resolve', { gameName: name, tagLine })
+      if (!hit) {
+        setErr(
+          `Can't find ${name}${tagLine ? `#${tagLine}` : ''}. Check the spelling, or add the tag.`
+        )
         return
       }
       try {
-        localStorage.setItem('lastTag', tagLine)
+        localStorage.setItem('lastTag', hit.record.tagLine)
       } catch {
         /* private window etc. */
       }
-      await onAdd(rec.puuid, note.trim())
+      await onAdd(hit.record.puuid, note.trim())
+      setFoundVia(
+        hit.source === 'given'
+          ? null
+          : `Found ${hit.record.gameName}#${hit.record.tagLine} ${
+              hit.source === 'history' ? 'in your match history' : 'on op.gg'
+            }.`
+      )
       setGameName('')
       setNote('')
     } catch (e) {
@@ -94,9 +103,11 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
     let added = 0
     try {
       for (const e of entries) {
-        const rec =
-          (await lookup({ gameName: e.gameName, tagLine: e.tagLine })) ??
-          (e.tagLine ? await lookup({ gameName: e.gameName, tagLine: '' }) : null)
+        const hit = await api.invoke('players:resolve', {
+          gameName: e.gameName,
+          tagLine: e.tagLine
+        })
+        const rec = hit?.record ?? null
         if (!rec) {
           missed.push(e.tagLine ? `${e.gameName}#${e.tagLine}` : e.gameName)
           continue
@@ -160,6 +171,7 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
           </button>
         </div>
         {err && <p className="hand mt-2 text-crayon-red">{err}</p>}
+        {foundVia && <p className="note mt-2">{foundVia}</p>}
         <details className="mt-3">
           <summary className="link-btn">Got a whole list? Paste it here</summary>
           <p className="note-by mt-2">

@@ -117,4 +117,48 @@ describe('createLcuApi', () => {
     const api = createLcuApi(clientWith({ '/lol-champ-select/v1/session': { nope: true } }))
     await expect(api.getChampSelectPlayers()).resolves.toEqual([])
   })
+  it('getMatchHistory maps participants, teams and win using your own puuid', async () => {
+    const api = createLcuApi(
+      clientWith({
+        '/lol-summoner/v1/current-summoner': { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' },
+        '/lol-match-history/v1/products/lol/current-summoner/matches': {
+          games: {
+            games: [
+              {
+                gameId: 42,
+                gameCreation: 1758500000000,
+                queueId: 420,
+                participantIdentities: [
+                  { participantId: 1, player: { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' } },
+                  {
+                    participantId: 2,
+                    player: { puuid: 'them', gameName: 'fockoff', tagLine: 'OCE' }
+                  }
+                ],
+                participants: [
+                  { participantId: 1, teamId: 200, championId: 64, stats: { win: true } },
+                  { participantId: 2, teamId: 100, championId: 122 }
+                ]
+              }
+            ]
+          }
+        }
+      })
+    )
+    const [game] = await api.getMatchHistory(5)
+    expect(game).toMatchObject({ gameId: '42', queue: 'Ranked Solo', win: true })
+    expect(game.players).toEqual([
+      { puuid: 'me', gameName: 'Blake', tagLine: 'OCE', team: 'ally' },
+      { puuid: 'them', gameName: 'fockoff', tagLine: 'OCE', team: 'enemy' }
+    ])
+    expect(game.playedAt).toBe(new Date(1758500000000).toISOString())
+  })
+
+  it('getMatchHistory returns [] when the endpoint is missing or malformed', async () => {
+    await expect(createLcuApi(clientWith({})).getMatchHistory()).resolves.toEqual([])
+    const bad = clientWith({
+      '/lol-match-history/v1/products/lol/current-summoner/matches': { nope: true }
+    })
+    await expect(createLcuApi(bad).getMatchHistory()).resolves.toEqual([])
+  })
 })

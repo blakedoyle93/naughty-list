@@ -1,9 +1,10 @@
-import type { GameflowPhase, Player, PlayerRecord, RiotId } from '@shared/types'
+import type { GameflowPhase, PastGame, Player, PlayerRecord, RiotId } from '@shared/types'
 import { LcuHttpError } from './client'
 import {
   ChampSelectSessionSchema,
   EogStatsBlockSchema,
   GameflowSessionSchema,
+  MatchHistorySchema,
   SummonerLikeSchema,
   SummonerSchema
 } from './schemas'
@@ -21,6 +22,23 @@ export interface LcuApi {
   /** Raw answers from every lookup endpoint, for the in-app diagnostic. */
   debugLookup(id: RiotId): Promise<string>
   getSummonerById(summonerId: number): Promise<PlayerRecord | null>
+  /** Your own recent games, newest first, each with all ten players and their Riot IDs. */
+  getMatchHistory(count?: number): Promise<PastGame[]>
+}
+
+/** Queue ids we care to name; anything else shows as "Game". */
+const QUEUES: Record<number, string> = {
+  400: 'Draft',
+  420: 'Ranked Solo',
+  430: 'Blind',
+  440: 'Ranked Flex',
+  450: 'ARAM',
+  700: 'Clash',
+  830: 'Co-op vs AI',
+  840: 'Co-op vs AI',
+  850: 'Co-op vs AI',
+  1700: 'Arena',
+  1900: 'URF'
 }
 
 type Getter = { get(path: string): Promise<unknown> }
@@ -165,6 +183,66 @@ export function createLcuApi(client: Getter): LcuApi {
       return lines.join('\n\n')
     },
 
+    async getMatchHistory(count = 20) {
+      try {
+        const raw = await client.get(
+          `/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=${count}`
+        )
+        const parsed = MatchHistorySchema.safeParse(raw)
+        if (!parsed.success) {
+          log('match history shape', parsed.error.flatten())
+          return []
+        }
+        const me = SummonerSchema.safeParse(await client.get('/lol-summoner/v1/current-summoner'))
+        const myPuuid = me.success ? me.data.puuid : ''
+        return parsed.data.games.games.map((g) => toPastGame(g, myPuuid))
+      } catch (e) {
+        if (!(e instanceof LcuHttpError)) log('getMatchHistory', e)
+        return []
+      }
+    },
+
     getSummonerById
+  }
+}
+
+/** Match history only gives team ids (100/200), so "ally" is whichever side you were on. */
+function toPastGame(
+  m: {
+    gameId: number
+    gameCreation: number
+    gameCreationDate: string
+    queueId: number
+    participantIdentities: Array<{
+      participantId: number
+      player: { puuid: string; gameName: string; tagLine: string; summonerName: string }
+    }>
+    participants: Array<{
+      participantId: number
+      teamId: number
+      championId: number
+      stats?: { win: boolean }
+    }>
+  },
+  myPuuid: string
+): PastGame {
+  const byId = new Map(m.participants.map((p) => [p.participantId, p]))
+  const mine = m.participantIdentities.find((i) => i.player.puuid === myPuuid)
+  const myTeam = mine ? (byId.get(mine.participantId)?.teamId ?? 100) : 100
+  const players: Player[] = m.participantIdentities.map((id) => {
+    const part = byId.get(id.participantId)
+    return {
+      puuid: id.player.puuid || null,
+      gameName: id.player.gameName || id.player.summonerName,
+      tagLine: id.player.tagLine,
+      team: part?.teamId === myTeam ? ('ally' as const) : ('enemy' as const)
+    }
+  })
+  return {
+    gameId: String(m.gameId),
+    playedAt: m.gameCreationDate || (m.gameCreation ? new Date(m.gameCreation).toISOString() : ''),
+    queue: QUEUES[m.queueId] ?? 'Game',
+    win: mine ? (byId.get(mine.participantId)?.stats?.win ?? null) : null,
+    players
   }
 }
