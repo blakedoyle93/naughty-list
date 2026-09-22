@@ -19,10 +19,17 @@ export function shouldShowOverlay(
 
 const WIDTH = 340
 const MARGIN = 24
+/**
+ * A fullscreen game re-asserts itself as the topmost window on every frame, so
+ * a one-shot setAlwaysOnTop loses the fight within a second. Overlays win it by
+ * claiming the top slot again on a timer.
+ */
+const REASSERT_MS = 1000
 
 export class Overlay {
   private win: BrowserWindow | null = null
   private enabled = true
+  private reassert: ReturnType<typeof setInterval> | null = null
   private last: { game: CurrentGame | null; hits: Hit[] } = { game: null, hits: [] }
 
   constructor(
@@ -47,6 +54,7 @@ export class Overlay {
   }
 
   destroy(): void {
+    this.stopReasserting()
     this.win?.destroy()
     this.win = null
   }
@@ -54,6 +62,7 @@ export class Overlay {
   private apply(): void {
     const want = shouldShowOverlay(this.last.game, this.last.hits, this.enabled)
     if (!want) {
+      this.stopReasserting()
       if (this.win?.isVisible()) {
         this.opts.log('overlay hidden')
         this.win.hide()
@@ -65,7 +74,26 @@ export class Overlay {
       this.opts.log('overlay shown', { hits: this.last.hits.length })
       win.showInactive()
     }
+    this.claimTop()
+    this.startReasserting()
+  }
+
+  private claimTop(): void {
+    const win = this.win
+    if (!win || win.isDestroyed() || !win.isVisible()) return
     win.setAlwaysOnTop(true, 'screen-saver')
+    win.moveTop()
+  }
+
+  private startReasserting(): void {
+    if (this.reassert) return
+    this.reassert = setInterval(() => this.claimTop(), REASSERT_MS)
+  }
+
+  private stopReasserting(): void {
+    if (!this.reassert) return
+    clearInterval(this.reassert)
+    this.reassert = null
   }
 
   private ensure(): BrowserWindow {

@@ -1,6 +1,6 @@
 {
   "name": "naughty-list",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared naughty list for League of Legends crews",
   "main": "./out/main/index.js",
   "author": "blakedoyle93",
