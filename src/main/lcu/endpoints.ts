@@ -157,7 +157,9 @@ export function createLcuApi(client: Getter): LcuApi {
         try {
           lines.push(`GET ${path}\n${JSON.stringify(await client.get(path), null, 2)}`)
         } catch (e) {
-          lines.push(`GET ${path}\n${e instanceof LcuHttpError ? `HTTP ${e.status}` : String(e)}`)
+          const cause = (e as { cause?: unknown }).cause
+          const detail = e instanceof LcuHttpError ? `HTTP ${e.status}` : String(e)
+          lines.push(`GET ${path}\n${detail}${cause ? `\n  cause: ${String(cause)}` : ''}`)
         }
       }
       return lines.join('\n\n')

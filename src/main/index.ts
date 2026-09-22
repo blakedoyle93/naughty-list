@@ -1,11 +1,11 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import WebSocket from 'ws'
-import { Agent as UndiciAgent } from 'undici'
+import { insecureLocalFetch } from './localFetch'
 import { autoUpdater } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readLockfile } from './lcu/lockfile'
-import { LcuClient, type FetchLike, type WsLike } from './lcu/client'
+import { LcuClient, type WsLike } from './lcu/client'
 import { LcuConnection } from './lcu/connection'
 import { createLcuApi, type LcuApi } from './lcu/endpoints'
 import { pollPlayerList } from './live/client'
@@ -21,11 +21,6 @@ import type { Flag, PlayerRecord } from '@shared/types'
 
 // ---- local Riot APIs: self-signed certs on 127.0.0.1 only -------------------
 
-const localDispatcher = new UndiciAgent({ connect: { rejectUnauthorized: false } })
-const insecureLocalFetch: FetchLike = (url, init) => {
-  if (!url.startsWith('https://127.0.0.1:')) throw new Error(`refusing non-local url ${url}`)
-  return fetch(url, { ...init, dispatcher: localDispatcher } as RequestInit)
-}
 const makeLocalWs = (url: string, headers: Record<string, string>): WsLike =>
   new WebSocket(url, ['wamp'], { headers, rejectUnauthorized: false }) as unknown as WsLike
 
