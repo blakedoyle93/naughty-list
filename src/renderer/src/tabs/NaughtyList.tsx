@@ -29,6 +29,8 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
   const [bulk, setBulk] = useState('')
   const [bulkResult, setBulkResult] = useState<{ added: number; missed: string[] } | null>(null)
   const [foundVia, setFoundVia] = useState<string | null>(null)
+  const [noting, setNoting] = useState<string | null>(null)
+  const [extraNote, setExtraNote] = useState('')
 
   const grouped = useMemo(() => {
     const byPuuid = new Map<string, Flag[]>()
@@ -243,7 +245,56 @@ export function NaughtyList({ flags, onAdd, onRemove, userId }: Props): React.JS
                 <Scribble />
                 {row.name}
               </span>
+              <button
+                className="link-btn ml-auto"
+                aria-label={`Add your note about ${row.name}`}
+                onClick={() => {
+                  setNoting(noting === row.puuid ? null : row.puuid)
+                  setExtraNote('')
+                }}
+              >
+                add your note
+              </button>
             </div>
+            {noting === row.puuid && (
+              <form
+                className="row pl-8"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const text = extraNote.trim()
+                  if (!text) return
+                  void onAdd(row.puuid, text).then(() => {
+                    setNoting(null)
+                    setExtraNote('')
+                  })
+                }}
+              >
+                <input
+                  className="pencil-input flex-1"
+                  placeholder="What did they do to you?"
+                  aria-label={`What did ${row.name} do?`}
+                  value={extraNote}
+                  onChange={(e) => setExtraNote(e.target.value)}
+                  maxLength={500}
+                  autoFocus
+                />
+                <button
+                  className="crayon-btn"
+                  style={
+                    {
+                      '--btn-color': 'var(--color-crayon-red)',
+                      color: '#fff'
+                    } as React.CSSProperties
+                  }
+                  disabled={!extraNote.trim()}
+                >
+                  Add
+                </button>
+                <button type="button" className="link-btn" onClick={() => setNoting(null)}>
+                  never mind
+                </button>
+              </form>
+            )}
             {row.flags.map((f) => (
               <div key={f.id} className="row pl-8">
                 <span className="note">

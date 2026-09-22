@@ -117,3 +117,24 @@ describe('NaughtyList', () => {
     expect(screen.getByText(/couldn't find/i)).toHaveTextContent('ghost#OCE')
   })
 })
+
+describe('adding your own note to someone already listed', () => {
+  it('lets anyone add a note to a player another person flagged', async () => {
+    const onAdd = vi.fn(async () => {})
+    render(<NaughtyList flags={flags} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
+    // Ezreal was flagged by someone else, so there is no forgive button for us.
+    await userEvent.click(await screen.findByLabelText('Add your note about Ezreal#NA1'))
+    await userEvent.type(screen.getByLabelText('What did Ezreal#NA1 do?'), 'ran it down mid')
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(onAdd).toHaveBeenCalledWith('E', 'ran it down mid')
+  })
+
+  it('closes the box without adding anything when you change your mind', async () => {
+    const onAdd = vi.fn(async () => {})
+    render(<NaughtyList flags={flags} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
+    await userEvent.click(await screen.findByLabelText('Add your note about Darius#0001'))
+    await userEvent.click(screen.getByRole('button', { name: 'never mind' }))
+    expect(screen.queryByLabelText('What did Darius#0001 do?')).toBeNull()
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+})

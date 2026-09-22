@@ -124,12 +124,16 @@ function PlayerRow({
           {naughty && <Scribble />}
           {name}
         </span>
-        {player.puuid && !naughty && (
-          <button className="link-btn" aria-label={`Tell on ${name}`} onClick={onStart}>
-            tell on them
+        {naughty && <span className="note-by">already on the list</span>}
+        {player.puuid && (
+          <button
+            className="link-btn ml-auto"
+            aria-label={naughty ? `Add your note about ${name}` : `Tell on ${name}`}
+            onClick={onStart}
+          >
+            {naughty ? 'add your note' : 'tell on them'}
           </button>
         )}
-        {naughty && <span className="note-by">already on the list</span>}
       </div>
       {writing && (
         <form
