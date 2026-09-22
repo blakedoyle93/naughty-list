@@ -17,12 +17,13 @@ import { GameTracker } from './game/tracker'
 import { SettingsStore } from './settings'
 import { Alerter } from './notify'
 import { Overlay } from './overlay'
+import { postAlert, isDiscordWebhook } from './discord'
 import { AppTray } from './tray'
 import { handle, push } from './ipc'
 import { createSupabase } from './sync/supabase'
 import { AuthService } from './sync/auth'
 import { FlagStore } from './sync/store'
-import type { Flag, PlayerRecord } from '@shared/types'
+import type { CurrentGame, Flag, Hit, PlayerRecord } from '@shared/types'
 
 // ---- local Riot APIs: self-signed certs on 127.0.0.1 only -------------------
 
@@ -39,6 +40,8 @@ let quitting = false
 let lastLockfileSeen = false
 let updates: UpdateService | null = null
 let overlay: Overlay | null = null
+/** Games we have already announced, so a phase change doesn't re-post. */
+const announced = new Set<string>()
 
 const userData = app.getPath('userData')
 const settings = new SettingsStore(join(userData, 'settings.json'))
@@ -143,6 +146,7 @@ const connection = new LcuConnection({
         push('game:update', { game, hits })
         overlay?.update(game, hits)
         tray?.update('connected', hits.length)
+        void announceToDiscord(game, hits)
       },
       onAlert: (hit) => {
         logger.log('alert', `notifying about ${hit.player.gameName}#${hit.player.tagLine}`)
@@ -187,6 +191,26 @@ const connection = new LcuConnection({
     tray?.update('disconnected', 0)
   }
 })
+
+/**
+ * Post one Discord message per game. The claim goes through Supabase so that
+ * when three of us are in the same lobby only one message lands, and the hour
+ * suffix keeps the key unique when the client hasn't given us a real game id
+ * yet.
+ */
+async function announceToDiscord(game: CurrentGame | null, hits: Hit[]): Promise<void> {
+  if (!game || hits.length === 0) return
+  const key = `${game.gameId}:${new Date().toISOString().slice(0, 13)}`
+  if (announced.has(key)) return
+  announced.add(key)
+  const url = store.webhookUrl()
+  if (!url) return
+  if (!(await store.claimAlert(key))) {
+    logger.log('discord', 'someone else in the crew is posting this one')
+    return
+  }
+  await postAlert({ fetch, log: (m, d) => logger.log('discord', m, d) }, url, game, hits)
+}
 
 // ---- window ------------------------------------------------------------------
 
@@ -337,6 +361,36 @@ void app.whenReady().then(() => {
   handle('crew:create', (name) => store.createCrew(name))
   handle('crew:join', (code) => store.joinCrew(code))
   handle('sync:status', () => store.status())
+  handle('crew:setWebhook', async (url) => {
+    const trimmed = url?.trim() ?? ''
+    if (trimmed && !isDiscordWebhook(trimmed)) {
+      throw new Error("That isn't a Discord webhook URL. Copy it from Discord again.")
+    }
+    await store.setWebhookUrl(trimmed || null)
+  })
+  handle('crew:testWebhook', () =>
+    postAlert(
+      { fetch, log: (m, d) => logger.log('discord', m, d) },
+      store.webhookUrl(),
+      { gameId: 'test', phase: 'ChampSelect', players: [], enemiesHidden: false },
+      [
+        {
+          player: { puuid: 'test', gameName: 'Test Player', tagLine: 'OCE', team: 'enemy' },
+          flags: [
+            {
+              id: 'test',
+              crewId: 'test',
+              puuid: 'test',
+              note: 'this is what a Discord alert looks like',
+              createdBy: 'test',
+              createdByName: 'Naughty List',
+              createdAt: new Date().toISOString()
+            }
+          ]
+        }
+      ]
+    )
+  )
 
   createWindow()
   overlay = new Overlay({
