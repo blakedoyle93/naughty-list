@@ -8,7 +8,8 @@ import type {
   LcuState,
   PlayerRecord,
   RiotId,
-  SyncStatus
+  SyncStatus,
+  PastGame
 } from './types'
 
 /** main → renderer pushes */
@@ -30,6 +31,14 @@ export interface Invoke {
   'flags:delete': { args: [id: string]; result: void }
   'players:list': { args: []; result: PlayerRecord[] }
   'players:lookup': { args: [RiotId]; result: PlayerRecord | null }
+  /** Name (tag optional) → player, via the client, your match history, then op.gg. */
+  'players:resolve': {
+    args: [{ gameName: string; tagLine: string }]
+    result: { source: 'given' | 'history' | 'opgg'; record: PlayerRecord } | null
+  }
+  'players:candidates': { args: [string]; result: RiotId[] }
+  'history:list': { args: [number | undefined]; result: PastGame[] }
+  'settings:setRegion': { args: [string]; result: void }
   'auth:signIn': { args: []; result: AuthUser }
   'auth:signOut': { args: []; result: void }
   'auth:get': { args: []; result: AuthUser | null }
@@ -37,7 +46,7 @@ export interface Invoke {
   'crew:create': { args: [name: string]; result: Crew }
   'crew:join': { args: [inviteCode: string]; result: Crew }
   'sync:status': { args: []; result: SyncStatus }
-  'settings:get': { args: []; result: { lockfilePath: string | null } }
+  'settings:get': { args: []; result: { lockfilePath: string | null; region: string } }
   'settings:setLockfilePath': { args: [path: string | null]; result: void }
 }
 

@@ -34,14 +34,19 @@ beforeEach(() => {
           { puuid: 'D', gameName: 'Darius', tagLine: '0001', region: null, lastSeenAt: '' },
           { puuid: 'E', gameName: 'Ezreal', tagLine: 'NA1', region: null, lastSeenAt: '' }
         ]
-      if (ch === 'players:lookup')
+      if (ch === 'players:resolve') {
+        const id = args[0] as { gameName: string; tagLine: string }
         return {
-          puuid: 'N',
-          gameName: (args[0] as { gameName: string }).gameName,
-          tagLine: 'TAG',
-          region: null,
-          lastSeenAt: ''
+          source: id.tagLine ? 'given' : 'history',
+          record: {
+            puuid: 'N',
+            gameName: id.gameName,
+            tagLine: id.tagLine || 'TAG',
+            region: null,
+            lastSeenAt: ''
+          }
         }
+      }
       return null
     }),
     on: vi.fn(() => () => {})
@@ -65,7 +70,7 @@ describe('NaughtyList', () => {
     await userEvent.click(dels[0])
     expect(onRemove).toHaveBeenCalledWith('1')
   })
-  it('adds by riot id via lookup', async () => {
+  it('adds by riot id via the resolver', async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined)
     render(<NaughtyList flags={[]} onAdd={onAdd} onRemove={vi.fn()} userId="me" />)
     await userEvent.type(screen.getByLabelText('Game name'), 'NewGuy')
@@ -87,11 +92,14 @@ describe('NaughtyList', () => {
     ;(window.naughty.invoke as ReturnType<typeof vi.fn>).mockImplementation(
       async (ch: string, ...args: unknown[]) => {
         if (ch === 'players:list') return []
-        if (ch === 'players:lookup') {
+        if (ch === 'players:resolve') {
           const id = args[0] as { gameName: string; tagLine: string }
           return id.gameName === 'ghost'
             ? null
-            : { puuid: `P-${id.gameName}`, ...id, region: null, lastSeenAt: '' }
+            : {
+                source: 'given',
+                record: { puuid: `P-${id.gameName}`, ...id, region: null, lastSeenAt: '' }
+              }
         }
         return null
       }

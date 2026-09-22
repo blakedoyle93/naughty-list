@@ -2,6 +2,8 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import WebSocket from 'ws'
 import { insecureLocalFetch } from './localFetch'
+import { searchOpgg } from './opgg'
+import { createResolver } from './names'
 import { autoUpdater } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readLockfile } from './lcu/lockfile'
@@ -166,7 +168,10 @@ void app.whenReady().then(() => {
   handle('lcu:debugLookup', (id) =>
     currentLcuApi ? currentLcuApi.debugLookup(id) : Promise.resolve("League isn't open.")
   )
-  handle('settings:get', () => ({ lockfilePath: settings.get().lockfilePath }))
+  handle('settings:get', () => ({
+    lockfilePath: settings.get().lockfilePath,
+    region: settings.get().region
+  }))
   handle('settings:setLockfilePath', (p) => settings.set({ lockfilePath: p }))
   handle('flags:list', () => store.flags())
   handle('flags:add', async ({ puuid, note }) => {
@@ -186,6 +191,32 @@ void app.whenReady().then(() => {
   })
   handle('flags:delete', (id) => store.deleteFlag(id))
   handle('players:list', () => store.players())
+  handle('history:list', (count) =>
+    currentLcuApi ? currentLcuApi.getMatchHistory(count ?? 20) : Promise.resolve([])
+  )
+  handle('players:resolve', async (id) => {
+    if (!currentLcuApi) throw new Error("League isn't open. Open the client, then try again.")
+    const resolver = createResolver({
+      history: () => currentLcuApi!.getMatchHistory(20),
+      searchOpgg,
+      lookupAlias: (rid) => currentLcuApi!.lookupAlias(rid),
+      region: settings.get().region
+    })
+    const hit = await resolver.resolve(id.gameName, id.tagLine)
+    if (hit) await store.upsertPlayers([hit.record])
+    return hit
+  })
+  handle('players:candidates', async (name) => {
+    const resolver = createResolver({
+      history: () => (currentLcuApi ? currentLcuApi.getMatchHistory(20) : Promise.resolve([])),
+      searchOpgg,
+      lookupAlias: (rid) =>
+        currentLcuApi ? currentLcuApi.lookupAlias(rid) : Promise.resolve(null),
+      region: settings.get().region
+    })
+    return resolver.candidates(name)
+  })
+  handle('settings:setRegion', (r) => settings.set({ region: r.trim().toLowerCase() || 'oce' }))
   handle('players:lookup', async (id) => {
     if (!currentLcuApi) throw new Error("League isn't open. Open the client, then try again.")
     const rec =

@@ -19,6 +19,12 @@ Windows and macOS.
 That's it. The app is already pointed at the shared backend; the invite code
 is the only thing you need from whoever runs the crew.
 
+### Adding people without typing names
+
+**Last games** lists your recent games from the League client, with everyone who
+was in them. Expand a game, hit "tell on them", write the note. No Riot IDs to
+copy.
+
 ### Adding a lot of people at once
 
 **The list** tab → "Got a whole list? Paste it here". One per line, League open:
@@ -28,6 +34,10 @@ GameName#TAG - what they did
 ```
 
 `seed/naughty-list.txt` is the starter list.
+
+Tags are optional. A name with no tag is resolved from your own match history
+first, then from op.gg using the region set in **My crew**. Whatever it finds is
+confirmed against the League client, so the PUUID always comes from Riot.
 
 ## How detection works
 

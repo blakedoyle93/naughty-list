@@ -4,6 +4,24 @@ import { api } from '../api'
 import type { AuthState } from '../hooks/useAuth'
 import { Sticker } from '../components/Sticker'
 
+/** op.gg region slugs. */
+const REGIONS = [
+  { id: 'oce', label: 'Oceania' },
+  { id: 'na', label: 'North America' },
+  { id: 'euw', label: 'Europe West' },
+  { id: 'eune', label: 'Europe Nordic & East' },
+  { id: 'kr', label: 'Korea' },
+  { id: 'jp', label: 'Japan' },
+  { id: 'br', label: 'Brazil' },
+  { id: 'lan', label: 'Latin America North' },
+  { id: 'las', label: 'Latin America South' },
+  { id: 'tr', label: 'Türkiye' },
+  { id: 'ru', label: 'Russia' },
+  { id: 'sg', label: 'Singapore' },
+  { id: 'tw', label: 'Taiwan' },
+  { id: 'vn', label: 'Vietnam' }
+]
+
 interface Props {
   auth: AuthState
 }
@@ -15,6 +33,7 @@ export function Crew({ auth }: Props): React.JSX.Element {
   const [err, setErr] = useState<string | null>(null)
   const [sync, setSync] = useState<SyncStatus | null>(null)
   const [lockfile, setLockfile] = useState<string>('')
+  const [region, setRegion] = useState<string>('oce')
   const [copied, setCopied] = useState(false)
   const [probe, setProbe] = useState('')
   const [probeOut, setProbeOut] = useState('')
@@ -32,7 +51,10 @@ export function Crew({ auth }: Props): React.JSX.Element {
 
   useEffect(() => {
     void api.invoke('sync:status').then(setSync)
-    void api.invoke('settings:get').then((s) => setLockfile(s.lockfilePath ?? ''))
+    void api.invoke('settings:get').then((s) => {
+      setLockfile(s.lockfilePath ?? '')
+      setRegion(s.region)
+    })
     return api.on('sync:status', setSync)
   }, [])
 
@@ -162,6 +184,25 @@ export function Crew({ auth }: Props): React.JSX.Element {
         {sync?.online ? 'Synced with your crew.' : 'Offline. Using the last list we saved.'}
         {sync?.pendingWrites ? ` ${sync.pendingWrites} thing(s) waiting to send.` : ''}
       </p>
+
+      <label className="row mt-4">
+        <span className="note">Your server, for looking up tags we don&apos;t have:</span>
+        <select
+          className="pencil-input"
+          aria-label="Region"
+          value={region}
+          onChange={(e) => {
+            setRegion(e.target.value)
+            void api.invoke('settings:setRegion', e.target.value)
+          }}
+        >
+          {REGIONS.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <details className="mt-4">
         <summary className="link-btn">League installed somewhere weird?</summary>

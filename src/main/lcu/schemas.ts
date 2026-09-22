@@ -50,6 +50,48 @@ export const SummonerLikeSchema = z
   .union([OneSummoner, z.array(OneSummoner)])
   .transform((v) => (Array.isArray(v) ? (v[0] ?? null) : v))
 
+const MatchParticipantIdentitySchema = z
+  .object({
+    participantId: z.number().default(0),
+    player: z
+      .object({
+        puuid: z.string().default(''),
+        gameName: z.string().default(''),
+        tagLine: z.string().default(''),
+        summonerName: z.string().default('')
+      })
+      .passthrough()
+  })
+  .passthrough()
+
+const MatchParticipantSchema = z
+  .object({
+    participantId: z.number().default(0),
+    teamId: z.number().default(0),
+    championId: z.number().default(0),
+    stats: z
+      .object({ win: z.boolean().default(false) })
+      .passthrough()
+      .optional()
+  })
+  .passthrough()
+
+export const MatchSchema = z
+  .object({
+    gameId: z.number(),
+    gameCreation: z.number().default(0),
+    gameCreationDate: z.string().default(''),
+    queueId: z.number().default(0),
+    participantIdentities: z.array(MatchParticipantIdentitySchema).default([]),
+    participants: z.array(MatchParticipantSchema).default([])
+  })
+  .passthrough()
+
+/** `/lol-match-history/v1/products/lol/current-summoner/matches` → `{ games: { games: [...] } }` */
+export const MatchHistorySchema = z
+  .object({ games: z.object({ games: z.array(MatchSchema).default([]) }).passthrough() })
+  .passthrough()
+
 export const EogPlayerSchema = z
   .object({
     puuid: z.string(),

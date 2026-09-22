@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { CurrentGame } from './tabs/CurrentGame'
 import { NaughtyList } from './tabs/NaughtyList'
+import { RecentGames } from './tabs/RecentGames'
 import { Crew } from './tabs/Crew'
 import { useGame } from './hooks/useGame'
 import { useFlags } from './hooks/useFlags'
 import { useAuth } from './hooks/useAuth'
 import { Sticker } from './components/Sticker'
 
-type Tab = 'game' | 'list' | 'crew'
+type Tab = 'game' | 'history' | 'list' | 'crew'
 
 const TABS: Array<{ id: Tab; label: string; color: string }> = [
   { id: 'game', label: 'This game', color: 'var(--color-crayon-yellow)' },
+  { id: 'history', label: 'Last games', color: 'var(--color-crayon-green)' },
   { id: 'list', label: 'The list', color: 'var(--color-crayon-red)' },
   { id: 'crew', label: 'My crew', color: 'var(--color-crayon-blue)' }
 ]
@@ -71,6 +73,7 @@ export default function App(): React.JSX.Element {
 
         <main className="mt-4">
           {tab === 'game' && <CurrentGame {...gameState} onFlag={flagsState.add} />}
+          {tab === 'history' && <RecentGames flags={flagsState.flags} onAdd={flagsState.add} />}
           {tab === 'list' && (
             <NaughtyList
               flags={flagsState.flags}

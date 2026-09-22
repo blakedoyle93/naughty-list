@@ -49,6 +49,16 @@ export interface PlayerRecord {
   lastSeenAt: string
 }
 
+/** One of your past games, from the client's own match history. */
+export interface PastGame {
+  gameId: string
+  /** ISO timestamp of when the game ended, or '' when the client doesn't say. */
+  playedAt: string
+  queue: string
+  win: boolean | null
+  players: Player[]
+}
+
 export interface Hit {
   player: Player
   flags: Flag[]
