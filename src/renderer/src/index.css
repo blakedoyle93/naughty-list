@@ -349,3 +349,27 @@ body {
   font-size: 17px;
   line-height: 32px;
 }
+
+/* Riot ID entry: name, a big hand-drawn #, then a short tag box */
+.riot-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 16rem;
+}
+.riot-id > .pencil-input:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.riot-id-hash {
+  font-family: var(--font-hand);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--color-pencil);
+}
+.riot-id-tag {
+  width: 5.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
