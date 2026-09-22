@@ -35,6 +35,7 @@ export function Crew({ auth }: Props): React.JSX.Element {
   const [sync, setSync] = useState<SyncStatus | null>(null)
   const [lockfile, setLockfile] = useState<string>('')
   const [region, setRegion] = useState<string>('oce')
+  const [overlayOn, setOverlayOn] = useState(true)
   const [copied, setCopied] = useState(false)
   const [probe, setProbe] = useState('')
   const [probeOut, setProbeOut] = useState('')
@@ -56,6 +57,7 @@ export function Crew({ auth }: Props): React.JSX.Element {
     void api.invoke('settings:get').then((s) => {
       setLockfile(s.lockfilePath ?? '')
       setRegion(s.region)
+      setOverlayOn(s.overlayEnabled)
     })
     return api.on('sync:status', setSync)
   }, [])
@@ -211,6 +213,20 @@ export function Crew({ auth }: Props): React.JSX.Element {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="row mt-4">
+        <input
+          type="checkbox"
+          checked={overlayOn}
+          onChange={(e) => {
+            setOverlayOn(e.target.checked)
+            void api.invoke('settings:setOverlay', e.target.checked)
+          }}
+        />
+        <span className="note">
+          Float a note over League when someone in the game is on the list
+        </span>
       </label>
 
       <details className="mt-4">

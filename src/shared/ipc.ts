@@ -41,6 +41,7 @@ export interface Invoke {
   'players:candidates': { args: [string]; result: RiotId[] }
   'history:list': { args: [number | undefined]; result: PastGame[] }
   'settings:setRegion': { args: [string]; result: void }
+  'settings:setOverlay': { args: [boolean]; result: void }
   'log:tail': { args: []; result: string[] }
   'log:open': { args: []; result: void }
   'debug:testAlert': { args: []; result: void }
@@ -55,7 +56,10 @@ export interface Invoke {
   'crew:create': { args: [name: string]; result: Crew }
   'crew:join': { args: [inviteCode: string]; result: Crew }
   'sync:status': { args: []; result: SyncStatus }
-  'settings:get': { args: []; result: { lockfilePath: string | null; region: string } }
+  'settings:get': {
+    args: []
+    result: { lockfilePath: string | null; region: string; overlayEnabled: boolean }
+  }
   'settings:setLockfilePath': { args: [path: string | null]; result: void }
 }
 

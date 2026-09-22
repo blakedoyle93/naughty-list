@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Notification, shell } from 'electron'
 import { dirname, join } from 'path'
 import WebSocket from 'ws'
 import { insecureLocalFetch } from './localFetch'
@@ -15,7 +15,8 @@ import { createLcuApi, type LcuApi } from './lcu/endpoints'
 import { pollPlayerList } from './live/client'
 import { GameTracker } from './game/tracker'
 import { SettingsStore } from './settings'
-import { notifyHit } from './notify'
+import { Alerter } from './notify'
+import { Overlay } from './overlay'
 import { AppTray } from './tray'
 import { handle, push } from './ipc'
 import { createSupabase } from './sync/supabase'
@@ -37,12 +38,31 @@ let currentLcuApi: LcuApi | null = null
 let quitting = false
 let lastLockfileSeen = false
 let updates: UpdateService | null = null
+let overlay: Overlay | null = null
 
 const userData = app.getPath('userData')
 const settings = new SettingsStore(join(userData, 'settings.json'))
 const logFile = join(userData, 'logs', 'main.log')
 const logger = new Logger(logFile)
 logger.log('app', 'start', { version: app.getVersion(), platform: process.platform })
+
+/**
+ * Toasts are unreliable: an unsigned macOS build or Do Not Disturb swallows
+ * them without a word. So every alert also bounces the dock / flashes the
+ * taskbar, and every outcome lands in the log.
+ */
+const alerter = new Alerter({
+  makeNotification: (opts) => (Notification.isSupported() ? new Notification(opts) : null),
+  grabAttention: () => {
+    if (process.platform === 'darwin') app.dock?.bounce('critical')
+    else win?.flashFrame(true)
+  },
+  focusWindow: () => {
+    win?.show()
+    win?.focus()
+  },
+  log: (m, d) => logger.log('alert', m, d)
+})
 
 const supabase = createSupabase({
   url: import.meta.env.MAIN_VITE_SUPABASE_URL,
@@ -121,11 +141,12 @@ const connection = new LcuConnection({
           flagsOnList: getFlags().length
         })
         push('game:update', { game, hits })
+        overlay?.update(game, hits)
         tray?.update('connected', hits.length)
       },
       onAlert: (hit) => {
         logger.log('alert', `notifying about ${hit.player.gameName}#${hit.player.tagLine}`)
-        notifyHit(hit, () => win?.show())
+        alerter.alert(hit)
       },
       onPlayersSeen: (players) => {
         const recs: PlayerRecord[] = players
@@ -162,6 +183,7 @@ const connection = new LcuConnection({
     currentLcuApi = null
     push('lcu:state', 'disconnected')
     push('game:update', { game: null, hits: [] })
+    overlay?.update(null, [])
     tray?.update('disconnected', 0)
   }
 })
@@ -218,7 +240,8 @@ void app.whenReady().then(() => {
   )
   handle('settings:get', () => ({
     lockfilePath: settings.get().lockfilePath,
-    region: settings.get().region
+    region: settings.get().region,
+    overlayEnabled: settings.get().overlayEnabled
   }))
   handle('settings:setLockfilePath', (p) => settings.set({ lockfilePath: p }))
   handle('flags:list', () => store.flags())
@@ -277,25 +300,26 @@ void app.whenReady().then(() => {
   handle('debug:testAlert', () => {
     const [flag] = getFlags()
     logger.log('alert', 'test alert requested')
-    notifyHit(
-      {
-        player: { puuid: 'test', gameName: 'Test Player', tagLine: 'OCE', team: 'enemy' },
-        flags: flag
-          ? [flag]
-          : [
-              {
-                id: 'test',
-                crewId: 'test',
-                puuid: 'test',
-                note: 'this is what an alert looks like',
-                createdBy: 'test',
-                createdByName: 'Naughty List',
-                createdAt: new Date().toISOString()
-              }
-            ]
-      },
-      () => win?.show()
-    )
+    alerter.alert({
+      player: { puuid: 'test', gameName: 'Test Player', tagLine: 'OCE', team: 'enemy' },
+      flags: flag
+        ? [flag]
+        : [
+            {
+              id: 'test',
+              crewId: 'test',
+              puuid: 'test',
+              note: 'this is what an alert looks like',
+              createdBy: 'test',
+              createdByName: 'Naughty List',
+              createdAt: new Date().toISOString()
+            }
+          ]
+    })
+  })
+  handle('settings:setOverlay', (on) => {
+    settings.set({ overlayEnabled: on })
+    overlay?.setEnabled(on)
   })
   handle('settings:setRegion', (r) => settings.set({ region: r.trim().toLowerCase() || 'oce' }))
   handle('players:lookup', async (id) => {
@@ -315,6 +339,13 @@ void app.whenReady().then(() => {
   handle('sync:status', () => store.status())
 
   createWindow()
+  overlay = new Overlay({
+    preload: join(__dirname, '../preload/index.js'),
+    rendererUrl: is.dev ? (process.env['ELECTRON_RENDERER_URL'] ?? null) : null,
+    indexHtml: join(__dirname, '../renderer/index.html'),
+    log: (m, d) => logger.log('overlay', m, d)
+  })
+  overlay.setEnabled(settings.get().overlayEnabled)
   tray = new AppTray(() => win?.show())
   connection.start()
   void auth.start().then(() => store.start())

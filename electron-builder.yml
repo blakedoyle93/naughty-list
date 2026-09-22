@@ -27,8 +27,10 @@ mac:
     - target: zip
       arch: [arm64, x64]
   category: public.app-category.games
-  # unsigned for MVP: friends right-click → Open once
-  identity: null
+  # Ad-hoc signed, not notarised: friends still right-click → Open once, but the
+  # bundle gets a stable signature, which macOS needs before it will deliver
+  # notifications from the app.
+  identity: '-'
   hardenedRuntime: false
   notarize: false
 dmg:
