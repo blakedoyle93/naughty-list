@@ -1,9 +1,10 @@
 import { app, BrowserWindow, shell } from 'electron'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import WebSocket from 'ws'
 import { insecureLocalFetch } from './localFetch'
 import { searchOpgg } from './opgg'
 import { createResolver } from './names'
+import { Logger } from './log'
 import { autoUpdater } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readLockfile } from './lcu/lockfile'
@@ -33,9 +34,13 @@ let tray: AppTray | null = null
 let tracker: GameTracker | null = null
 let currentLcuApi: LcuApi | null = null
 let quitting = false
+let lastLockfileSeen = false
 
 const userData = app.getPath('userData')
 const settings = new SettingsStore(join(userData, 'settings.json'))
+const logFile = join(userData, 'logs', 'main.log')
+const logger = new Logger(logFile)
+logger.log('app', 'start', { version: app.getVersion(), platform: process.platform })
 
 const supabase = createSupabase({
   url: import.meta.env.MAIN_VITE_SUPABASE_URL,
@@ -62,7 +67,14 @@ const auth = new AuthService({
 const getFlags = (): Flag[] => store.flags()
 
 const connection = new LcuConnection({
-  readLockfile: () => readLockfile({ override: settings.get().lockfilePath }),
+  readLockfile: () => {
+    const info = readLockfile({ override: settings.get().lockfilePath })
+    if (!!info !== lastLockfileSeen) {
+      lastLockfileSeen = !!info
+      logger.log('lcu', info ? 'lockfile found' : 'no lockfile', info ? { port: info.port } : {})
+    }
+    return info
+  },
   makeClient: (info) => new LcuClient(info, { fetch: insecureLocalFetch, makeWs: makeLocalWs }),
   onConnected: (client) => {
     const lcu = createLcuApi(client)
@@ -70,21 +82,40 @@ const connection = new LcuConnection({
     tracker?.dispose()
     tracker = new GameTracker({
       lcu,
-      pollLive: (signal) =>
-        pollPlayerList(
+      pollLive: async (signal) => {
+        logger.log('game', 'waiting for the live game api on 127.0.0.1:2999')
+        const players = await pollPlayerList(
           {
             fetch: insecureLocalFetch,
             sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
             now: Date.now
           },
           { signal }
-        ),
+        )
+        logger.log(
+          'game',
+          players
+            ? `live game api answered with ${players.length} players`
+            : 'live game api never answered',
+          players?.map((p) => `${p.gameName}#${p.tagLine}`) ?? []
+        )
+        return players
+      },
       getFlags,
       onUpdate: (game, hits) => {
+        logger.log('game', `phase ${game?.phase ?? 'none'}`, {
+          players: game?.players.length ?? 0,
+          withPuuid: game?.players.filter((p) => p.puuid).length ?? 0,
+          hits: hits.length,
+          flagsOnList: getFlags().length
+        })
         push('game:update', { game, hits })
         tray?.update('connected', hits.length)
       },
-      onAlert: (hit) => notifyHit(hit, () => win?.show()),
+      onAlert: (hit) => {
+        logger.log('alert', `notifying about ${hit.player.gameName}#${hit.player.tagLine}`)
+        notifyHit(hit, () => win?.show())
+      },
       onPlayersSeen: (players) => {
         const recs: PlayerRecord[] = players
           .filter((p) => p.puuid)
@@ -99,16 +130,22 @@ const connection = new LcuConnection({
       }
     })
     client.subscribe('OnJsonApiEvent_lol-gameflow_v1_gameflow-phase', (e) => {
+      logger.log('lcu', `gameflow event: ${String(e.data)}`)
       void tracker?.handlePhase(String(e.data))
     })
     void lcu
       .getGameflowPhase()
-      .then((p) => tracker?.handlePhase(p))
-      .catch(() => {})
+      .then((p) => {
+        logger.log('lcu', `phase on connect: ${p}`)
+        return tracker?.handlePhase(p)
+      })
+      .catch((e) => logger.log('lcu', 'could not read the phase', String(e)))
+    logger.log('lcu', 'connected')
     push('lcu:state', 'connected')
     tray?.update('connected', 0)
   },
   onDisconnected: () => {
+    logger.log('lcu', 'disconnected')
     tracker?.dispose()
     tracker = null
     currentLcuApi = null
@@ -215,6 +252,33 @@ void app.whenReady().then(() => {
       region: settings.get().region
     })
     return resolver.candidates(name)
+  })
+  handle('log:tail', () => logger.tail(200))
+  handle('log:open', () => {
+    void shell.openPath(dirname(logFile))
+  })
+  handle('debug:testAlert', () => {
+    const [flag] = getFlags()
+    logger.log('alert', 'test alert requested')
+    notifyHit(
+      {
+        player: { puuid: 'test', gameName: 'Test Player', tagLine: 'OCE', team: 'enemy' },
+        flags: flag
+          ? [flag]
+          : [
+              {
+                id: 'test',
+                crewId: 'test',
+                puuid: 'test',
+                note: 'this is what an alert looks like',
+                createdBy: 'test',
+                createdByName: 'Naughty List',
+                createdAt: new Date().toISOString()
+              }
+            ]
+      },
+      () => win?.show()
+    )
   })
   handle('settings:setRegion', (r) => settings.set({ region: r.trim().toLowerCase() || 'oce' }))
   handle('players:lookup', async (id) => {

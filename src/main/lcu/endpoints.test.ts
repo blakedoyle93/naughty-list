@@ -161,4 +161,67 @@ describe('createLcuApi', () => {
     })
     await expect(createLcuApi(bad).getMatchHistory()).resolves.toEqual([])
   })
+  it('getMatchHistory asks for the full game when the summary names only you', async () => {
+    const api = createLcuApi(
+      clientWith({
+        '/lol-summoner/v1/current-summoner': { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' },
+        '/lol-match-history/v1/products/lol/current-summoner/matches': {
+          games: {
+            games: [
+              {
+                gameId: 7,
+                queueId: 450,
+                participantIdentities: [
+                  { participantId: 1, player: { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' } },
+                  { participantId: 2, player: { puuid: '', gameName: '', tagLine: '' } }
+                ],
+                participants: [
+                  { participantId: 1, teamId: 100, stats: { win: true } },
+                  { participantId: 2, teamId: 200 }
+                ]
+              }
+            ]
+          }
+        },
+        '/lol-match-history/v1/games/7': {
+          gameId: 7,
+          queueId: 450,
+          participantIdentities: [
+            { participantId: 1, player: { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' } },
+            { participantId: 2, player: { puuid: 'them', gameName: 'fockoff', tagLine: 'OCE' } }
+          ],
+          participants: [
+            { participantId: 1, teamId: 100, stats: { win: true } },
+            { participantId: 2, teamId: 200 }
+          ]
+        }
+      })
+    )
+    const [game] = await api.getMatchHistory(1)
+    expect(game.players.map((p) => p.gameName)).toEqual(['Blake', 'fockoff'])
+    expect(game.players[1]).toMatchObject({ team: 'enemy', puuid: 'them' })
+  })
+
+  it('getMatchHistory keeps the summary when the full game cannot be read', async () => {
+    const api = createLcuApi(
+      clientWith({
+        '/lol-summoner/v1/current-summoner': { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' },
+        '/lol-match-history/v1/products/lol/current-summoner/matches': {
+          games: {
+            games: [
+              {
+                gameId: 8,
+                participantIdentities: [
+                  { participantId: 1, player: { puuid: 'me', gameName: 'Blake', tagLine: 'OCE' } }
+                ],
+                participants: [{ participantId: 1, teamId: 100 }]
+              }
+            ]
+          }
+        }
+      })
+    )
+    const [game] = await api.getMatchHistory(1)
+    expect(game.players.map((p) => p.gameName)).toEqual(['Blake'])
+  })
 })

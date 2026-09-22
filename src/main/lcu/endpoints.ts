@@ -5,6 +5,7 @@ import {
   EogStatsBlockSchema,
   GameflowSessionSchema,
   MatchHistorySchema,
+  MatchSchema,
   SummonerLikeSchema,
   SummonerSchema
 } from './schemas'
@@ -24,6 +25,8 @@ export interface LcuApi {
   getSummonerById(summonerId: number): Promise<PlayerRecord | null>
   /** Your own recent games, newest first, each with all ten players and their Riot IDs. */
   getMatchHistory(count?: number): Promise<PastGame[]>
+  /** One game in full. The history list only names you; this names everyone. */
+  getGame(gameId: string, myPuuid: string): Promise<PastGame | null>
 }
 
 /** Queue ids we care to name; anything else shows as "Game". */
@@ -67,6 +70,18 @@ function toRecord(s: { puuid: string; gameName: string; tagLine: string }): Play
 }
 
 export function createLcuApi(client: Getter): LcuApi {
+  async function getGame(gameId: string, myPuuid: string): Promise<PastGame | null> {
+    try {
+      const parsed = MatchSchema.safeParse(
+        await client.get(`/lol-match-history/v1/games/${gameId}`)
+      )
+      return parsed.success ? toPastGame(parsed.data, myPuuid) : null
+    } catch (e) {
+      if (!(e instanceof LcuHttpError)) log('getGame', e)
+      return null
+    }
+  }
+
   async function getSummonerById(summonerId: number): Promise<PlayerRecord | null> {
     try {
       const parsed = SummonerSchema.safeParse(
@@ -195,15 +210,30 @@ export function createLcuApi(client: Getter): LcuApi {
         }
         const me = SummonerSchema.safeParse(await client.get('/lol-summoner/v1/current-summoner'))
         const myPuuid = me.success ? me.data.puuid : ''
-        return parsed.data.games.games.map((g) => toPastGame(g, myPuuid))
+        const summaries = parsed.data.games.games.map((g) => toPastGame(g, myPuuid))
+        // The list endpoint only fills in your own participant, so ask for each game in full.
+        // One at a time: this is a local client, not a server, and 20 parallel calls upset it.
+        const full: PastGame[] = []
+        for (const summary of summaries) {
+          full.push(
+            namesMissing(summary) ? ((await getGame(summary.gameId, myPuuid)) ?? summary) : summary
+          )
+        }
+        return full
       } catch (e) {
         if (!(e instanceof LcuHttpError)) log('getMatchHistory', e)
         return []
       }
     },
 
+    getGame,
     getSummonerById
   }
+}
+
+/** True when the client trimmed everyone but you out of the game summary. */
+function namesMissing(game: PastGame): boolean {
+  return game.players.filter((p) => p.gameName).length < 2
 }
 
 /** Match history only gives team ids (100/200), so "ally" is whichever side you were on. */

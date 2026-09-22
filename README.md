@@ -56,6 +56,15 @@ these APIs are expected to keep working. Riot's LCU policy technically asks
 developers to request approval before releasing an LCU app; this is a private
 tool for a friend group and does not do that. LCU apps are prohibited in Korea.
 
+## When something doesn't work
+
+**My crew → "Something not working? Open the log"** shows what the app is doing:
+whether it found the League client, which gameflow phases arrived, how many
+players the live game API returned, and every alert sent. "Send a test alert"
+checks OS notifications without launching a game. The log is written to
+`<userData>/logs/main.log` with the LCU password and auth tokens redacted, so
+it's safe to paste.
+
 ## Development
 
 ```bash
