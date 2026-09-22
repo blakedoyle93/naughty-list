@@ -17,7 +17,7 @@ import { GameTracker } from './game/tracker'
 import { SettingsStore } from './settings'
 import { Alerter } from './notify'
 import { Overlay } from './overlay'
-import { postAlert, isDiscordWebhook } from './discord'
+import { postAlert, isDiscordWebhook, isAlertPhase, alertKey } from './discord'
 import { AppTray } from './tray'
 import { handle, push } from './ipc'
 import { createSupabase } from './sync/supabase'
@@ -194,13 +194,13 @@ const connection = new LcuConnection({
 
 /**
  * Post one Discord message per game. The claim goes through Supabase so that
- * when three of us are in the same lobby only one message lands, and the hour
- * suffix keeps the key unique when the client hasn't given us a real game id
- * yet.
+ * when three of us are in the same lobby only one message lands. The key is
+ * the set of flagged players rather than the game id, because the client
+ * reports a different id in champ select, in game and at the end.
  */
 async function announceToDiscord(game: CurrentGame | null, hits: Hit[]): Promise<void> {
-  if (!game || hits.length === 0) return
-  const key = `${game.gameId}:${new Date().toISOString().slice(0, 13)}`
+  if (!game || hits.length === 0 || !isAlertPhase(game.phase)) return
+  const key = alertKey(hits)
   if (announced.has(key)) return
   announced.add(key)
   const url = store.webhookUrl()

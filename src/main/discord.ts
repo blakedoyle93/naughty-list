@@ -28,10 +28,9 @@ const PHASE_WORDS: Record<string, string> = {
 
 export interface DiscordMessage {
   username: string
-  /** Plain text, because this is what Discord puts in the push notification. */
+  /** The headline, said once. This is also what Discord puts in the push notification. */
   content: string
   embeds: Array<{
-    title: string
     description: string
     color: number
     footer: { text: string }
@@ -43,26 +42,44 @@ const CRAYON_RED = 0xe23d32
 
 const SIREN = '\u{1F6A8}'
 
+/** Phases worth shouting about. The game is over by EndOfGame, so nobody needs telling. */
+const ALERT_PHASES = new Set(['ChampSelect', 'GameStart', 'InProgress', 'Reconnect'])
+
+export function isAlertPhase(phase: string): boolean {
+  return ALERT_PHASES.has(phase)
+}
+
+/**
+ * Keyed on who is in the game rather than the game id, because the client hands
+ * out a different id in champ select, in game and at the end of it, and the same
+ * three players must not produce three messages.
+ */
+export function alertKey(hits: Hit[]): string {
+  const who = hits
+    .map((h) => h.player.puuid ?? `${h.player.gameName}#${h.player.tagLine}`)
+    .sort()
+    .join(',')
+  return `${who}:${new Date().toISOString().slice(0, 13)}`
+}
+
 export function buildMessage(game: CurrentGame, hits: Hit[]): DiscordMessage {
   const where = PHASE_WORDS[game.phase] ?? 'in a game'
-  const headline = `${SIREN} **NAUGHTY GAYMER ALERT** ${SIREN}`
 
-  const lines = hits.map((hit) => {
+  const blocks = hits.map((hit) => {
     const { gameName, tagLine, team } = hit.player
     const side = team === 'ally' ? 'on our team' : 'against us'
-    const note = hit.flags[0]?.note ?? 'no reason given'
-    const who = hit.flags[0]?.createdByName
-    const by = who ? ` — ${who}` : ''
-    return `**${gameName}#${tagLine}** - ${note} _(${side})_${by}`
+    const notes = hit.flags.length
+      ? hit.flags.map((f) => `> ${f.note}${f.createdByName ? ` — ${f.createdByName}` : ''}`)
+      : ['> no reason given']
+    return [`**${gameName}#${tagLine}** _(${side})_`, ...notes].join('\n')
   })
 
   return {
     username: 'Naughty List',
-    content: `${headline}\n${hits.map((h) => h.player.gameName).join(', ')}`,
+    content: `${SIREN} **NAUGHTY GAYMER ALERT** ${SIREN}`,
     embeds: [
       {
-        title: `${SIREN} Naughty gaymer alert ${SIREN}`,
-        description: lines.join('\n\n'),
+        description: blocks.join('\n\n'),
         color: CRAYON_RED,
         footer: { text: `Spotted ${where}` }
       }
@@ -89,7 +106,7 @@ export async function postAlert(
     deps.log('that webhook url is not a discord one, refusing to post')
     return 'bad-webhook'
   }
-  if (!game || hits.length === 0) return 'nothing-to-say'
+  if (!game || hits.length === 0 || !isAlertPhase(game.phase)) return 'nothing-to-say'
 
   try {
     const res = await deps.fetch(webhookUrl, {
