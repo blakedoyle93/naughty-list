@@ -182,13 +182,13 @@ body {
   height: calc(100% + 18px);
   pointer-events: none;
   color: var(--color-crayon-red);
-  opacity: 0.9;
+  opacity: 0.55;
 }
 
 .scribble path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 3.2;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
