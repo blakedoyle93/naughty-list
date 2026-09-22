@@ -373,3 +373,82 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* ---- overlay ---------------------------------------------------------- */
+/* Floats over the League client and the game itself. The window is
+   transparent and click-through, so everything here must be self-contained. */
+
+html.overlay-mode,
+html.overlay-mode body {
+  background: transparent;
+  overflow: hidden;
+}
+
+.overlay-card {
+  margin: 6px;
+  padding: 12px 14px 14px;
+  border: 2px solid var(--color-ink);
+  border-radius: 3px;
+  background: var(--color-paper);
+  box-shadow: 4px 5px 0 rgba(30, 42, 71, 0.45);
+  transform: rotate(-1.2deg);
+}
+
+.overlay-heading {
+  margin: 0 0 8px;
+  font-family: var(--font-hand);
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--color-crayon-red);
+}
+
+.overlay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overlay-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.overlay-mark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  color: var(--color-crayon-red);
+  opacity: 0.85;
+}
+
+.overlay-who {
+  min-width: 0;
+}
+
+.overlay-name {
+  font-family: var(--font-hand);
+  font-size: 1.15rem;
+  color: var(--color-ink);
+}
+
+.overlay-team {
+  margin-left: 6px;
+  font-size: 0.72rem;
+  text-transform: lowercase;
+  color: var(--color-ink-soft);
+}
+
+.overlay-note {
+  display: block;
+  overflow: hidden;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  color: var(--color-ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

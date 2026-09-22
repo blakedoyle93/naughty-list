@@ -5,9 +5,11 @@ export interface Settings {
   lockfilePath: string | null
   /** op.gg region slug used when searching for a tag we don't have. */
   region: string
+  /** float a small panel over the client and the game when someone is flagged */
+  overlayEnabled: boolean
 }
 
-const DEFAULTS: Settings = { lockfilePath: null, region: 'oce' }
+const DEFAULTS: Settings = { lockfilePath: null, region: 'oce', overlayEnabled: true }
 
 export class SettingsStore {
   private cache: Settings
