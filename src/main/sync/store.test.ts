@@ -134,5 +134,21 @@ describe('FlagStore', () => {
       { puuid: 'P9', gameName: 'A', tagLine: 'B', region: null, lastSeenAt: '' }
     ])
     expect(s.status().pendingWrites).toBe(1)
+    // cached anyway, so the list shows the name instead of the puuid
+    expect(s.players()).toMatchObject([{ puuid: 'P9', gameName: 'A', tagLine: 'B' }])
+  })
+
+  it('upsertPlayers replaces an existing record rather than duplicating it', async () => {
+    const s = new FlagStore({
+      supabase: mockSupabase({}) as never,
+      cacheFile: tmp(),
+      onFlagsChanged: vi.fn(),
+      onStatus: vi.fn()
+    })
+    await s.start()
+    const rec = { puuid: 'P9', gameName: 'A', tagLine: 'B', region: null, lastSeenAt: '' }
+    await s.upsertPlayers([rec])
+    await s.upsertPlayers([{ ...rec, gameName: 'Renamed' }])
+    expect(s.players().filter((p) => p.puuid === 'P9')).toMatchObject([{ gameName: 'Renamed' }])
   })
 })
