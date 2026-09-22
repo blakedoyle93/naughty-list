@@ -9,7 +9,8 @@ import type {
   PlayerRecord,
   RiotId,
   SyncStatus,
-  PastGame
+  PastGame,
+  UpdateStatus
 } from './types'
 
 /** main → renderer pushes */
@@ -19,6 +20,7 @@ export interface PushEvents {
   'flags:changed': Flag[]
   'auth:changed': AuthUser | null
   'sync:status': SyncStatus
+  'update:status': UpdateStatus
 }
 
 /** renderer → main request/response */
@@ -42,6 +44,10 @@ export interface Invoke {
   'log:tail': { args: []; result: string[] }
   'log:open': { args: []; result: void }
   'debug:testAlert': { args: []; result: void }
+  'update:get': { args: []; result: UpdateStatus }
+  'update:check': { args: []; result: UpdateStatus }
+  'update:install': { args: []; result: void }
+  'update:openReleases': { args: []; result: void }
   'auth:signIn': { args: []; result: AuthUser }
   'auth:signOut': { args: []; result: void }
   'auth:get': { args: []; result: AuthUser | null }

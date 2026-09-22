@@ -3,6 +3,7 @@ import type { Crew as CrewT, CrewMember, SyncStatus } from '@shared/types'
 import { api } from '../api'
 import type { AuthState } from '../hooks/useAuth'
 import { Sticker } from '../components/Sticker'
+import { UpdateBadge } from '../components/UpdateBadge'
 
 /** op.gg region slugs. */
 const REGIONS = [
@@ -87,6 +88,9 @@ export function Crew({ auth }: Props): React.JSX.Element {
         >
           {auth.loading ? 'Waiting for Discord…' : 'Sign in with Discord'}
         </button>
+        <div className="mt-4">
+          <UpdateBadge />
+        </div>
       </div>
     )
   }
@@ -185,6 +189,10 @@ export function Crew({ auth }: Props): React.JSX.Element {
         {sync?.online ? 'Synced with your crew.' : 'Offline. Using the last list we saved.'}
         {sync?.pendingWrites ? ` ${sync.pendingWrites} thing(s) waiting to send.` : ''}
       </p>
+
+      <div className="mt-6">
+        <UpdateBadge />
+      </div>
 
       <label className="row mt-4">
         <span className="note">Your server, for looking up tags we don&apos;t have:</span>

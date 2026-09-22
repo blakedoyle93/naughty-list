@@ -5,6 +5,7 @@ import { insecureLocalFetch } from './localFetch'
 import { searchOpgg } from './opgg'
 import { createResolver } from './names'
 import { Logger } from './log'
+import { UpdateService } from './updates'
 import { autoUpdater } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readLockfile } from './lcu/lockfile'
@@ -35,6 +36,7 @@ let tracker: GameTracker | null = null
 let currentLcuApi: LcuApi | null = null
 let quitting = false
 let lastLockfileSeen = false
+let updates: UpdateService | null = null
 
 const userData = app.getPath('userData')
 const settings = new SettingsStore(join(userData, 'settings.json'))
@@ -65,6 +67,15 @@ const auth = new AuthService({
   }
 })
 const getFlags = (): Flag[] => store.flags()
+
+const RELEASES_URL = 'https://github.com/blakedoyle93/naughty-list/releases/latest'
+const RELEASES_FALLBACK = {
+  version: app.getVersion(),
+  state: 'idle' as const,
+  latest: null,
+  canSelfUpdate: false,
+  message: null
+}
 
 const connection = new LcuConnection({
   readLockfile: () => {
@@ -253,6 +264,12 @@ void app.whenReady().then(() => {
     })
     return resolver.candidates(name)
   })
+  handle('update:get', () => updates?.current() ?? RELEASES_FALLBACK)
+  handle('update:check', async () => (updates ? updates.check() : RELEASES_FALLBACK))
+  handle('update:install', () => updates?.install())
+  handle('update:openReleases', () => {
+    void shell.openExternal(RELEASES_URL)
+  })
   handle('log:tail', () => logger.tail(200))
   handle('log:open', () => {
     void shell.openPath(dirname(logFile))
@@ -304,12 +321,18 @@ void app.whenReady().then(() => {
 
   // Auto-update from GitHub Releases: check at launch and every 4h while sitting in the tray.
   // Downloads in the background, notifies, installs on quit. macOS needs a signed build for this.
+  // macOS builds are unsigned, so electron-updater can't replace the app; there we only
+  // tell the user a newer version exists and link them to the release.
+  updates = new UpdateService({
+    updater: autoUpdater as unknown as ConstructorParameters<typeof UpdateService>[0]['updater'],
+    version: app.getVersion(),
+    canSelfUpdate: process.platform === 'win32',
+    onStatus: (s) => push('update:status', s),
+    log: (m, d) => logger.log('update', m, d)
+  })
   if (!is.dev) {
-    autoUpdater.autoDownload = true
-    autoUpdater.on('error', (e) => console.warn('[updater]', e.message))
-    const check = (): void => void autoUpdater.checkForUpdatesAndNotify().catch(() => {})
-    check()
-    setInterval(check, 4 * 60 * 60 * 1000)
+    void updates.check()
+    setInterval(() => void updates?.check(), 4 * 60 * 60 * 1000)
   }
 
   app.on('activate', () => {

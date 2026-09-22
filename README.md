@@ -56,6 +56,13 @@ these APIs are expected to keep working. Riot's LCU policy technically asks
 developers to request approval before releasing an LCU app; this is a private
 tool for a friend group and does not do that. LCU apps are prohibited in Korea.
 
+## Updates
+
+**My crew** shows the version you're running and whether it's the latest, with a
+"check again" link. Windows downloads the update and offers a restart. macOS
+builds are unsigned, so they can't replace themselves: there the app links you to
+the release to download. The app also checks on launch and every 4 hours.
+
 ## When something doesn't work
 
 **My crew → "Something not working? Open the log"** shows what the app is doing:
